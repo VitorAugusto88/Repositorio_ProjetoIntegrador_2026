@@ -1,6 +1,9 @@
 from pathlib import Path
-from decouple import config
+from urllib.parse import parse_qs, unquote, urlparse
 from datetime import timedelta
+
+from decouple import config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -37,7 +40,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # deve ficar antes do CommonMiddleware
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -65,23 +68,47 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# ── Banco de dados ───────────────────────────────────────────────────────────
-DATABASES = {
-    'default': {
+
+def build_database_config():
+    database_url = config('DATABASE_URL', default='').strip()
+
+    if database_url:
+        parsed = urlparse(database_url)
+        query = parse_qs(parsed.query)
+
+        db_config = {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': parsed.path.lstrip('/'),
+            'USER': unquote(parsed.username or ''),
+            'PASSWORD': unquote(parsed.password or ''),
+            'HOST': parsed.hostname or '',
+            'PORT': str(parsed.port or '5432'),
+            'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
+        }
+
+        sslmode = query.get('sslmode', [config('DB_SSLMODE', default='require')])[0]
+        if sslmode:
+            db_config['OPTIONS'] = {'sslmode': sslmode}
+
+        return db_config
+
+    return {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME', default='clinica_db'),
         'USER': config('DB_USER', default='clinica_user'),
         'PASSWORD': config('DB_PASSWORD', default='clinica_pass'),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
+        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
     }
+
+
+DATABASES = {
+    'default': build_database_config()
 }
 
-# ── Autenticação ─────────────────────────────────────────────────────────────
-# Usamos nosso modelo customizado de usuário
 AUTH_USER_MODEL = 'accounts.User'
 
-# ── Django REST Framework ────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -93,18 +120,15 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# ── JWT ──────────────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
-    # Inclui role e clinic_id no token para o frontend usar
     'TOKEN_OBTAIN_SERIALIZER': 'apps.accounts.serializers.CustomTokenObtainSerializer',
 }
 
-# ── CORS (permite o React chamar a API) ──────────────────────────────────────
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:3000'
@@ -114,10 +138,9 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'authorization',
     'content-type',
-    'x-clinic-id',  # header customizado para multi-clínica
+    'x-clinic-id',
 ]
 
-# ── Arquivos ─────────────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 

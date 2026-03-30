@@ -64,3 +64,9 @@ class ProfessionalProfileSerializer(serializers.ModelSerializer):
         model = ProfessionalProfile
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+class PatientListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'email', 'phone', 'is_active', 'created_at']
+        read_only_fields = fields

@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
+from .views import ClinicPatientListView
 
 urlpatterns = [
     # Autenticação
@@ -14,4 +15,5 @@ urlpatterns = [
     # Perfis
     path('patients/<uuid:user_id>/profile/', views.PatientProfileView.as_view(), name='patient_profile'),
     path('professionals/', views.ProfessionalListView.as_view(), name='professionals'),
+    path('<uuid:pk>/patients/', ClinicPatientListView.as_view(), name='clinic-patient-list'),
 ]

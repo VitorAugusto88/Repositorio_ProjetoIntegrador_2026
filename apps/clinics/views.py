@@ -1,55 +1,47 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
+
 from .models import Clinic
 from .serializers import ClinicSerializer
-from apps.accounts.permissions import IsAdminOnly
+from apps.accounts.permissions import IsAdminOnly, IsPlatformAdmin
 
 
 class ClinicListView(generics.ListAPIView):
     """
     GET /api/clinics/
-    Lista as unidades da clínica.
-    - Se a clínica tem uma unidade: retorna só ela
-    - Se tem várias unidades (rede de clínicas): retorna todas
-    Apenas usuários autenticados acessam.
+    Lista apenas a clinica do usuario logado.
+    Superusuario pode listar todas.
     """
     serializer_class = ClinicSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        # Admin vê todas as unidades
-        if user.is_admin:
+        if user.is_superuser:
             return Clinic.objects.filter(is_active=True)
-        # Paciente e psicólogo veem só a própria unidade
-        if user.clinic:
-            return Clinic.objects.filter(id=user.clinic.id, is_active=True)
+        if user.clinic_id:
+            return Clinic.objects.filter(id=user.clinic_id, is_active=True)
         return Clinic.objects.none()
 
 
 class ClinicCreateView(generics.CreateAPIView):
     """
-    POST /api/clinics/
-    Cria uma nova unidade.
-    Apenas admins podem criar — feito uma vez na configuração inicial
-    ou quando a rede abre uma nova unidade.
+    POST /api/clinics/create/
+    Cria uma nova clinica.
+    Apenas a plataforma deve usar esta rota.
     """
     serializer_class = ClinicSerializer
-    permission_classes = [IsAdminOnly]
+    permission_classes = [IsPlatformAdmin]
 
 
 class ClinicDetailView(generics.RetrieveUpdateAPIView):
     """
     GET   /api/clinics/<id>/
-    Detalhes da unidade — nome, endereço, horários, totais.
-
     PATCH /api/clinics/<id>/
-    Edita dados da unidade — apenas admin.
-    Usado para atualizar horário de funcionamento, contato, etc.
     """
     serializer_class = ClinicSerializer
-    permission_classes = [permissions.IsAuthenticated]
     queryset = Clinic.objects.all()
 
     def get_permissions(self):
@@ -58,26 +50,31 @@ class ClinicDetailView(generics.RetrieveUpdateAPIView):
         return [permissions.IsAuthenticated()]
 
     def get_object(self):
-        user = self.request.user
         clinic = super().get_object()
-        # Garante que o usuário só acessa a própria unidade
-        # Admin pode acessar qualquer unidade da rede
-        if not user.is_admin and user.clinic != clinic:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied('Você não tem acesso a esta unidade.')
+        user = self.request.user
+
+        if user.is_superuser:
+            return clinic
+
+        if user.clinic_id != clinic.id:
+            raise PermissionDenied('Voce nao tem acesso a esta clinica.')
+
         return clinic
 
 
 class ClinicProfessionalsView(APIView):
     """
     GET /api/clinics/<id>/professionals/
-    Lista os psicólogos de uma unidade.
-    Paciente usa para escolher com quem quer se consultar.
+    Lista os profissionais da clinica do usuario.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
         clinic = generics.get_object_or_404(Clinic, pk=pk)
+
+        if not request.user.is_superuser and request.user.clinic_id != clinic.id:
+            raise PermissionDenied('Voce nao pode listar profissionais de outra clinica.')
+
         from apps.accounts.models import ProfessionalProfile
         from apps.accounts.serializers import ProfessionalProfileSerializer
 
@@ -93,14 +90,16 @@ class ClinicProfessionalsView(APIView):
 class ClinicStatsView(APIView):
     """
     GET /api/clinics/<id>/stats/
-    Estatísticas da unidade para o dashboard admin:
-    total de consultas, concluídas, canceladas,
-    pacientes ativos e profissionais.
+    Estatisticas da clinica.
     """
     permission_classes = [IsAdminOnly]
 
     def get(self, request, pk):
         clinic = generics.get_object_or_404(Clinic, pk=pk)
+
+        if request.user.clinic_id != clinic.id:
+            raise PermissionDenied('Voce nao pode acessar estatisticas de outra clinica.')
+
         from apps.appointments.models import Appointment
 
         total = Appointment.objects.filter(clinic=clinic).count()
