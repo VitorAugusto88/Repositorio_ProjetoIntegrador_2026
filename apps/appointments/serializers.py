@@ -43,7 +43,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'professional_detail', 'patient_detail',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'patient', 'status', 'created_at', 'updated_at']  
 
     def validate_scheduled_at(self, value):
         if value <= timezone.now():

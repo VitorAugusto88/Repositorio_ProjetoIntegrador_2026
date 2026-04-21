@@ -79,8 +79,21 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         ).select_related('professional__user', 'clinic')
 
     def perform_create(self, serializer):
-        # Paciente só pode agendar para si mesmo
-        serializer.save(patient=self.request.user.patient_profile)
+        user = self.request.user
+        print('='*50)
+        print('User ID:', user.id)
+        print('Email:', user.email)
+        print('Role:', user.role)
+        print('is_patient:', user.is_patient)
+        print('is_professional:', user.is_professional)
+        print('has patient_profile:', hasattr(user, 'patient_profile'))
+        print('='*50)
+        
+        if not hasattr(user, 'patient_profile'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Apenas pacientes podem agendar consultas.')
+        
+        serializer.save(patient=user.patient_profile)
 
 
 class AppointmentDetailView(generics.RetrieveUpdateAPIView):
@@ -125,7 +138,7 @@ class AppointmentCancelView(APIView):
             )
 
         serializer = AppointmentCancelSerializer(
-            appointment, data=request.data, instance=appointment
+        instance=appointment, data=request.data
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()

@@ -17,7 +17,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             'id', 'patient', 'title', 'file', 'file_url',
             'file_type', 'file_type_display', 'uploaded_at'
         ]
-        read_only_fields = ['id', 'uploaded_at', 'file_url']
+        read_only_fields = ['id', 'patient', 'uploaded_at', 'file_url']
 
     def get_file_url(self, obj):
         """

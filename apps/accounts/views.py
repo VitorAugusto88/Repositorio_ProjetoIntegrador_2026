@@ -33,13 +33,24 @@ class RegisterView(generics.CreateAPIView):
 
 class MeView(APIView):
     """
-    GET /api/auth/me/
-    Retorna dados do usuario autenticado.
+    GET  /api/auth/me/  — Retorna dados do usuario autenticado.
+    PATCH /api/auth/me/ — Atualiza full_name e phone do usuario autenticado.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        # Apenas full_name e phone são permitidos aqui
+        # Campos sensíveis como role, email, clinic são ignorados
+        allowed_fields = {'full_name', 'phone'}
+        data = {k: v for k, v in request.data.items() if k in allowed_fields}
+
+        serializer = UserSerializer(request.user, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
 
