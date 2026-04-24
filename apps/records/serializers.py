@@ -1,6 +1,7 @@
 # Serializers da Fase 2
 from rest_framework import serializers
 from .models import Document
+from apps.accounts.models import PatientProfile
 
 
 class DocumentSerializer(serializers.ModelSerializer):
@@ -10,6 +11,11 @@ class DocumentSerializer(serializers.ModelSerializer):
     """
     file_url = serializers.SerializerMethodField()
     file_type_display = serializers.CharField(source='get_file_type_display', read_only=True)
+    patient = serializers.PrimaryKeyRelatedField(
+        queryset=PatientProfile.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Document
@@ -17,7 +23,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             'id', 'patient', 'title', 'file', 'file_url',
             'file_type', 'file_type_display', 'uploaded_at'
         ]
-        read_only_fields = ['id', 'patient', 'uploaded_at', 'file_url']
+        read_only_fields = ['id', 'uploaded_at', 'file_url']
 
     def get_file_url(self, obj):
         """

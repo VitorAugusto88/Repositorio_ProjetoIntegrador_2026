@@ -1,3 +1,5 @@
+import os
+
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -83,16 +85,21 @@ class DocumentDetailView(generics.RetrieveDestroyAPIView):
         document = self.get_object()
         user = request.user
 
-        if not (user.is_superuser or user.is_admin or document.patient == user.patient_profile):
+        if not (user.is_superuser or user.is_admin or user.is_professional or document.patient == user.patient_profile):
             return Response(
                 {'erro': 'Voce nao tem permissao para remover este documento.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        if document.file:
-            import os
-            if os.path.isfile(document.file.path):
-                os.remove(document.file.path)
+        # Remove o arquivo físico com segurança
+        try:
+            if document.file:
+                file_path = document.file.path
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+        except Exception:
+            # Arquivo já inexistente ou em storage externo — ignora e segue
+            pass
 
         document.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

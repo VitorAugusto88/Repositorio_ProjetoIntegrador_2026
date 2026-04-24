@@ -61,7 +61,7 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
     Profissional e admin podem editar a anamnese.
     """
     serializer_class = PatientProfileSerializer
-    permission_classes = [IsAdminOrSelf]
+    permission_classes = [IsProfessionalOrAdmin]
 
     def get_object(self):
         queryset = PatientProfile.objects.select_related('user')
@@ -79,7 +79,7 @@ class ProfessionalListView(generics.ListAPIView):
     Lista psicologos disponiveis para a clinica do usuario logado.
     """
     serializer_class = ProfessionalProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsProfessionalOrAdmin]
 
     def get_queryset(self):
         user = self.request.user
