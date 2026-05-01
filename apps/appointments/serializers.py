@@ -3,6 +3,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import Appointment, Availability, SessionNote, Rating
 from apps.accounts.serializers import ProfessionalProfileSerializer, PatientProfileSerializer
+from apps.accounts.models import PatientProfile
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):
@@ -34,6 +35,14 @@ class AppointmentSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
 
+    # required=False permite que pacientes não enviem 'patient' no body —
+    # perform_create injeta user.patient_profile automaticamente para eles.
+    # Admin e profissional devem enviar o UUID explicitamente.
+    patient = serializers.PrimaryKeyRelatedField(
+        queryset=PatientProfile.objects.all(),
+        required=False,
+    )
+
     class Meta:
         model = Appointment
         fields = [
@@ -43,7 +52,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'professional_detail', 'patient_detail',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'patient', 'status', 'created_at', 'updated_at']  
+        # 'patient' removido de read_only_fields para que admin/profissional
+        # possam passar o UUID no body. perform_create injeta o valor para pacientes.
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_scheduled_at(self, value):
         if value <= timezone.now():

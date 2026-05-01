@@ -66,7 +66,13 @@ class ProfessionalProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 class PatientListSerializer(serializers.ModelSerializer):
+    """
+    Retorna PatientProfile com user aninhado.
+    O campo 'id' e o PatientProfile.id — usado no POST /api/appointments/ como 'patient'.
+    """
+    user = UserSerializer(read_only=True)
+
     class Meta:
-        model = User
-        fields = ['id', 'full_name', 'email', 'phone', 'is_active', 'created_at']
+        model = PatientProfile
+        fields = ['id', 'user', 'birth_date', 'cpf', 'created_at']
         read_only_fields = fields

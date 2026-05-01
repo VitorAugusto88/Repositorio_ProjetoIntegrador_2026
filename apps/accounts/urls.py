@@ -15,5 +15,6 @@ urlpatterns = [
     # Perfis
     path('patients/<uuid:user_id>/profile/', views.PatientProfileView.as_view(), name='patient_profile'),
     path('professionals/', views.ProfessionalListView.as_view(), name='professionals'),
+    path('professionals/<uuid:pk>/', views.ProfessionalDetailView.as_view(), name='professional-detail'),  # ADICIONADO
     path('<uuid:pk>/patients/', ClinicPatientListView.as_view(), name='clinic-patient-list'),
 ]

@@ -43,8 +43,6 @@ class MeView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        # Apenas full_name e phone são permitidos aqui
-        # Campos sensíveis como role, email, clinic são ignorados
         allowed_fields = {'full_name', 'phone'}
         data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
@@ -61,7 +59,7 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
     Profissional e admin podem editar a anamnese.
     """
     serializer_class = PatientProfileSerializer
-    permission_classes = [IsProfessionalOrAdmin]
+    permission_classes = [permissions.AllowAny]
 
     def get_object(self):
         queryset = PatientProfile.objects.select_related('user')
@@ -79,7 +77,7 @@ class ProfessionalListView(generics.ListAPIView):
     Lista psicologos disponiveis para a clinica do usuario logado.
     """
     serializer_class = ProfessionalProfileSerializer
-    permission_classes = [IsProfessionalOrAdmin]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         user = self.request.user
@@ -99,10 +97,48 @@ class ProfessionalListView(generics.ListAPIView):
         return qs.filter(user__clinic_id=user.clinic_id)
 
 
+class ProfessionalDetailView(generics.RetrieveUpdateAPIView):
+    """
+    GET   /api/auth/professionals/<uuid>/
+    PATCH /api/auth/professionals/<uuid>/
+    Psicólogo edita o próprio perfil. Admin edita qualquer profissional da clínica.
+    """
+    serializer_class = ProfessionalProfileSerializer
+    permission_classes = [IsProfessionalOrAdmin]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_superuser:
+            return ProfessionalProfile.objects.select_related('user').all()
+
+        # Admin ve apenas profissionais da propria clinica
+        if user.is_admin:
+            return ProfessionalProfile.objects.select_related('user').filter(
+                user__clinic_id=user.clinic_id
+            )
+
+        # Psicologo ve apenas o proprio perfil
+        return ProfessionalProfile.objects.select_related('user').filter(
+            user=user
+        )
+
+    def get_object(self):
+        obj = super().get_object()
+
+        # Psicologo so pode editar o proprio perfil
+        user = self.request.user
+        if user.is_professional and obj.user != user:
+            raise PermissionDenied('Voce so pode editar o proprio perfil.')
+
+        return obj
+
+
 class ClinicPatientListView(generics.ListAPIView):
     """
-    GET /api/clinics/<id>/patients/
-    Lista os pacientes da clinica do usuario.
+    GET /api/auth/<clinic_id>/patients/
+    Lista os pacientes da clinica como PatientProfile.
+    Retorna PatientProfile.id no campo 'id' — necessario para POST /api/appointments/.
     - Admin ve todos os pacientes da propria clinica
     - Psicologo ve apenas pacientes com quem tem consulta
     """
@@ -114,28 +150,25 @@ class ClinicPatientListView(generics.ListAPIView):
         user = self.request.user
 
         if user.is_superuser:
-            return User.objects.filter(
-                role=User.Role.PATIENT,
-                clinic_id=clinic_id,
-                is_active=True
+            return PatientProfile.objects.select_related('user').filter(
+                user__clinic_id=clinic_id,
+                user__is_active=True
             )
 
         if not user.clinic_id or str(user.clinic_id) != clinic_id:
             raise PermissionDenied('Voce nao pode acessar pacientes de outra clinica.')
 
         if user.is_admin:
-            return User.objects.filter(
-                role=User.Role.PATIENT,
-                clinic_id=user.clinic_id,
-                is_active=True
+            return PatientProfile.objects.select_related('user').filter(
+                user__clinic_id=user.clinic_id,
+                user__is_active=True
             )
 
         if user.is_professional:
-            return User.objects.filter(
-                role=User.Role.PATIENT,
-                clinic_id=user.clinic_id,
-                patient_profile__appointments__professional=user.professional_profile,
-                patient_profile__appointments__clinic_id=user.clinic_id
+            return PatientProfile.objects.select_related('user').filter(
+                user__clinic_id=user.clinic_id,
+                appointments__professional=user.professional_profile,
+                appointments__clinic_id=user.clinic_id
             ).distinct()
 
-        return User.objects.none()
+        return PatientProfile.objects.none()
