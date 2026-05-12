@@ -23,6 +23,7 @@ urlpatterns = [
 
     # Notificações
     path('api/notifications/', include('apps.notifications.urls')),
+    path('api/reports/', include('apps.reports.urls')),
 ]
 
 # Serve arquivos de mídia em desenvolvimento

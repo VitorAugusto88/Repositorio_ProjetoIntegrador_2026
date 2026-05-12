@@ -1,13 +1,74 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from .models import Appointment, Availability, SessionNote, Rating
 from .serializers import (
     AppointmentSerializer, AppointmentCancelSerializer,
     AvailabilitySerializer, SessionNoteSerializer, RatingSerializer
 )
-from apps.accounts.permissions import IsProfessionalOrAdmin
+from apps.accounts.permissions import CanManageAvailability, IsProfessionalOrAdmin
+from apps.audit.models import AuditLog
+from apps.audit.services import (
+    changed_model_fields,
+    log_audit_event,
+    model_field_snapshot,
+)
+
+
+APPOINTMENT_AUDIT_FIELDS = [
+    'patient_id',
+    'professional_id',
+    'clinic_id',
+    'scheduled_at',
+    'duration_minutes',
+    'status',
+    'cancel_reason',
+]
+
+
+def log_appointment_event(request, action, appointment, metadata=None):
+    log_audit_event(
+        action=action,
+        target=appointment,
+        request=request,
+        metadata=metadata or {},
+    )
+
+
+def get_appointments_for_user(user):
+    queryset = Appointment.objects.select_related(
+        'patient__user', 'professional__user', 'clinic'
+    )
+
+    if user.is_superuser:
+        return queryset
+
+    if user.is_admin:
+        if not user.clinic_id:
+            return queryset.none()
+        return queryset.filter(clinic_id=user.clinic_id)
+
+    if user.is_professional:
+        professional = getattr(user, 'professional_profile', None)
+        if professional is None:
+            return queryset.none()
+        return queryset.filter(
+            clinic_id=user.clinic_id,
+            professional=professional
+        )
+
+    if user.is_patient:
+        patient = getattr(user, 'patient_profile', None)
+        if patient is None:
+            return queryset.none()
+        return queryset.filter(
+            clinic_id=user.clinic_id,
+            patient=patient
+        )
+
+    return queryset.none()
 
 
 class AvailabilityListCreateView(generics.ListCreateAPIView):
@@ -19,17 +80,29 @@ class AvailabilityListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = Availability.objects.filter(blocked=False)
+        user = self.request.user
+        qs = Availability.objects.select_related('professional__user').filter(blocked=False)
         professional_id = self.request.query_params.get('professional')
+
+        if not user.is_superuser:
+            if not user.clinic_id:
+                return qs.none()
+
+            qs = qs.filter(professional__user__clinic_id=user.clinic_id)
+
         if professional_id:
             qs = qs.filter(professional_id=professional_id)
         return qs
 
     def perform_create(self, serializer):
         if not self.request.user.is_professional:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Apenas psicologos podem cadastrar horarios.')
-        serializer.save(professional=self.request.user.professional_profile)
+
+        professional = getattr(self.request.user, 'professional_profile', None)
+        if professional is None:
+            raise PermissionDenied('Perfil profissional nao encontrado.')
+
+        serializer.save(professional=professional)
 
 
 class AvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -37,8 +110,30 @@ class AvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
     GET/PATCH/DELETE /api/appointments/availability/<id>/
     """
     serializer_class = AvailabilitySerializer
-    permission_classes = [IsProfessionalOrAdmin]
-    queryset = Availability.objects.all()
+    permission_classes = [CanManageAvailability]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Availability.objects.select_related('professional__user')
+
+        if user.is_superuser:
+            return queryset
+
+        if user.is_admin:
+            if not user.clinic_id:
+                return queryset.none()
+            return queryset.filter(professional__user__clinic_id=user.clinic_id)
+
+        if user.is_professional:
+            professional = getattr(user, 'professional_profile', None)
+            if professional is None:
+                return queryset.none()
+            return queryset.filter(professional=professional)
+
+        return queryset.none()
+
+    def perform_update(self, serializer):
+        serializer.save(professional=serializer.instance.professional)
 
 
 class AppointmentListCreateView(generics.ListCreateAPIView):
@@ -50,38 +145,57 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]  # CORRIGIDO: era AllowAny
 
     def get_queryset(self):
-        user = self.request.user
-
-        if user.is_admin:
-            return Appointment.objects.all().select_related(
-                'patient__user', 'professional__user', 'clinic'
-            )
-
-        if user.is_professional:
-            return Appointment.objects.filter(
-                professional=user.professional_profile
-            ).select_related('patient__user', 'clinic')
-
-        return Appointment.objects.filter(
-            patient=user.patient_profile
-        ).select_related('professional__user', 'clinic')
+        return get_appointments_for_user(self.request.user)
 
     def perform_create(self, serializer):
         user = self.request.user
 
+        if user.is_superuser:
+            appointment = serializer.save()
+            log_appointment_event(
+                self.request,
+                AuditLog.Action.APPOINTMENT_CREATED,
+                appointment,
+            )
+            return
+
+        if not user.clinic_id:
+            raise PermissionDenied('Usuario sem clinica vinculada.')
+
         if user.is_admin:
-            serializer.save()
+            appointment = serializer.save(clinic_id=user.clinic_id)
+            log_appointment_event(
+                self.request,
+                AuditLog.Action.APPOINTMENT_CREATED,
+                appointment,
+            )
             return
 
         if user.is_professional:
-            serializer.save()
+            professional = getattr(user, 'professional_profile', None)
+            if professional is None:
+                raise PermissionDenied('Perfil profissional nao encontrado.')
+            appointment = serializer.save(
+                clinic_id=user.clinic_id,
+                professional=professional
+            )
+            log_appointment_event(
+                self.request,
+                AuditLog.Action.APPOINTMENT_CREATED,
+                appointment,
+            )
             return
 
-        if not hasattr(user, 'patient_profile'):
-            from rest_framework.exceptions import PermissionDenied
+        patient = getattr(user, 'patient_profile', None)
+        if patient is None:
             raise PermissionDenied('Apenas pacientes podem agendar consultas.')
 
-        serializer.save(patient=user.patient_profile)
+        appointment = serializer.save(clinic_id=user.clinic_id, patient=patient)
+        log_appointment_event(
+            self.request,
+            AuditLog.Action.APPOINTMENT_CREATED,
+            appointment,
+        )
 
 
 class AppointmentDetailView(generics.RetrieveUpdateAPIView):
@@ -92,12 +206,44 @@ class AppointmentDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        return get_appointments_for_user(self.request.user)
+
+    def perform_update(self, serializer):
         user = self.request.user
-        if user.is_admin:
-            return Appointment.objects.all()
-        if user.is_professional:
-            return Appointment.objects.filter(professional=user.professional_profile)
-        return Appointment.objects.filter(patient=user.patient_profile)
+        before = model_field_snapshot(
+            serializer.instance,
+            APPOINTMENT_AUDIT_FIELDS,
+        )
+
+        if user.is_superuser:
+            appointment = serializer.save()
+        elif user.is_admin:
+            appointment = serializer.save(clinic_id=user.clinic_id)
+        elif user.is_professional:
+            appointment = serializer.save(
+                clinic_id=user.clinic_id,
+                professional=user.professional_profile
+            )
+        else:
+            patient = getattr(user, 'patient_profile', None)
+            if patient is None:
+                raise PermissionDenied('Perfil de paciente nao encontrado.')
+
+            appointment = serializer.save(clinic_id=user.clinic_id, patient=patient)
+
+        changed_fields = changed_model_fields(
+            before,
+            appointment,
+            APPOINTMENT_AUDIT_FIELDS,
+        )
+
+        if changed_fields:
+            log_appointment_event(
+                self.request,
+                AuditLog.Action.APPOINTMENT_UPDATED,
+                appointment,
+                metadata={'changed_fields': changed_fields},
+            )
 
     def partial_update(self, request, *args, **kwargs):
         allowed_statuses = {'completed', 'rescheduled', 'no_show', 'scheduled'}
@@ -118,12 +264,18 @@ class AppointmentCancelView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        appointment = get_object_or_404(Appointment, pk=pk)
-
         user = request.user
-        if not (user.is_admin or
-                (user.is_patient and appointment.patient == user.patient_profile) or
-                (user.is_professional and appointment.professional == user.professional_profile)):
+        appointment = get_object_or_404(get_appointments_for_user(user), pk=pk)
+
+        can_cancel = (
+            user.is_admin
+            or (user.is_patient and appointment.patient == user.patient_profile)
+            or (
+                user.is_professional
+                and appointment.professional == user.professional_profile
+            )
+        )
+        if not can_cancel:
             return Response(
                 {'erro': 'Voce nao tem permissao para cancelar esta consulta.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -132,6 +284,12 @@ class AppointmentCancelView(APIView):
         serializer = AppointmentCancelSerializer(instance=appointment, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        log_appointment_event(
+            request,
+            AuditLog.Action.APPOINTMENT_CANCELLED,
+            appointment,
+            metadata={'cancel_reason_provided': True},
+        )
         return Response({'mensagem': 'Consulta cancelada com sucesso.'})
 
 
@@ -148,11 +306,11 @@ class SessionNoteView(generics.RetrieveUpdateAPIView):
 
         # Admin nao tem professional_profile — bloquear antes de tentar acessar
         if not user.is_professional:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Apenas psicologos podem acessar notas de sessao.')
 
         appointment = get_object_or_404(
             Appointment, pk=self.kwargs['pk'],
+            clinic_id=user.clinic_id,
             professional=user.professional_profile
         )
         note, _ = SessionNote.objects.get_or_create(appointment=appointment)
@@ -167,10 +325,15 @@ class RatingCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
+        patient = getattr(self.request.user, 'patient_profile', None)
+        if patient is None:
+            raise PermissionDenied('Apenas pacientes podem avaliar consultas.')
+
         appointment = get_object_or_404(
             Appointment,
             pk=self.kwargs['pk'],
-            patient=self.request.user.patient_profile
+            clinic_id=self.request.user.clinic_id,
+            patient=patient
         )
         serializer.save(appointment=appointment)
 
@@ -186,21 +349,27 @@ class ProfessionalAppointmentSummaryView(APIView):
         from django.utils.timezone import localdate
 
         hoje = localdate()
+        if not request.user.is_professional:
+            raise PermissionDenied('Apenas psicologos podem acessar este resumo.')
+
         professional = request.user.professional_profile
 
         consultas_hoje = Appointment.objects.filter(
+            clinic_id=request.user.clinic_id,
             professional=professional,
             scheduled_at__date=hoje,
             status='scheduled'
         ).count()
 
         proxima = Appointment.objects.filter(
+            clinic_id=request.user.clinic_id,
             professional=professional,
             scheduled_at__gte=timezone.now(),
             status='scheduled'
         ).order_by('scheduled_at').first()
 
         total_pacientes = Appointment.objects.filter(
+            clinic_id=request.user.clinic_id,
             professional=professional
         ).values('patient').distinct().count()
 

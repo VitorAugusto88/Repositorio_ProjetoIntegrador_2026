@@ -1,6 +1,11 @@
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, PatientProfile, ProfessionalProfile
+from apps.notifications.utils import send_invitation_email, send_password_reset_email
 
 
 class CustomTokenObtainSerializer(TokenObtainPairSerializer):
@@ -41,6 +46,10 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Auto-cadastro permitido apenas para pacientes.')
         return value
 
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         # Cria perfil de paciente automaticamente
@@ -65,6 +74,7 @@ class ProfessionalProfileSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+
 class PatientListSerializer(serializers.ModelSerializer):
     """
     Retorna PatientProfile com user aninhado.
@@ -76,3 +86,228 @@ class PatientListSerializer(serializers.ModelSerializer):
         model = PatientProfile
         fields = ['id', 'user', 'birth_date', 'cpf', 'created_at']
         read_only_fields = fields
+
+
+def ensure_role_profile(user, profile_data=None):
+    profile_data = profile_data or {}
+
+    if user.is_patient:
+        PatientProfile.objects.get_or_create(user=user, defaults=profile_data)
+        return
+
+    if user.is_professional:
+        ProfessionalProfile.objects.get_or_create(user=user, defaults=profile_data)
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    patient_profile = PatientProfileSerializer(read_only=True)
+    professional_profile = ProfessionalProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'full_name', 'phone', 'role', 'clinic',
+            'is_active', 'created_at', 'updated_at',
+            'patient_profile', 'professional_profile',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class AdminUserCreateSerializer(serializers.ModelSerializer):
+    crp = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    specialty = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    bio = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    session_duration_minutes = serializers.IntegerField(required=False, write_only=True)
+    birth_date = serializers.DateField(required=False, allow_null=True, write_only=True)
+    cpf = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    medical_history = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    anamnesis = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    emergency_contact_name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+    )
+    emergency_contact_phone = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+    )
+    send_invite = serializers.BooleanField(default=True, write_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'full_name', 'phone', 'role', 'clinic',
+            'crp', 'specialty', 'bio', 'session_duration_minutes',
+            'birth_date', 'cpf', 'medical_history', 'anamnesis',
+            'emergency_contact_name', 'emergency_contact_phone',
+            'send_invite',
+        ]
+        read_only_fields = ['id']
+
+    def validate_role(self, value):
+        if value not in [User.Role.PATIENT, User.Role.PROFESSIONAL]:
+            raise serializers.ValidationError(
+                'A criacao interna permite apenas pacientes ou profissionais.'
+            )
+        return value
+
+    def validate(self, attrs):
+        request = self.context['request']
+        creator = request.user
+        role = attrs.get('role')
+
+        if not creator.is_superuser:
+            attrs['clinic'] = creator.clinic
+        elif not attrs.get('clinic'):
+            raise serializers.ValidationError(
+                {'clinic': 'Superusers devem informar a clinica do usuario.'}
+            )
+
+        if role == User.Role.PROFESSIONAL and not attrs.get('crp'):
+            raise serializers.ValidationError({'crp': 'CRP e obrigatorio.'})
+
+        return attrs
+
+    def create(self, validated_data):
+        send_invite = validated_data.pop('send_invite', True)
+        role = validated_data.get('role')
+        profile_data = self._pop_profile_data(validated_data, role)
+        user = User.objects.create_user(password=None, **validated_data)
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+        ensure_role_profile(user, profile_data)
+
+        if send_invite:
+            send_invitation_email(user)
+
+        return user
+
+    def _pop_profile_data(self, data, role):
+        patient_fields = [
+            'birth_date', 'cpf', 'medical_history', 'anamnesis',
+            'emergency_contact_name', 'emergency_contact_phone',
+        ]
+        professional_fields = [
+            'crp', 'specialty', 'bio', 'session_duration_minutes',
+        ]
+        profile_data = {}
+        allowed_fields = patient_fields if role == User.Role.PATIENT else professional_fields
+
+        for field in patient_fields + professional_fields:
+            if field not in data:
+                continue
+            value = data.pop(field)
+            if field in allowed_fields:
+                profile_data[field] = value
+
+        return profile_data
+
+
+class AdminPatientCreateSerializer(AdminUserCreateSerializer):
+    def validate(self, attrs):
+        attrs['role'] = User.Role.PATIENT
+        return super().validate(attrs)
+
+
+class AdminProfessionalCreateSerializer(AdminUserCreateSerializer):
+    def validate(self, attrs):
+        attrs['role'] = User.Role.PROFESSIONAL
+        return super().validate(attrs)
+
+
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['full_name', 'phone', 'email']
+
+
+class AdminUserRoleSerializer(serializers.ModelSerializer):
+    crp = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    specialty = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    bio = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    session_duration_minutes = serializers.IntegerField(required=False, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['role', 'crp', 'specialty', 'bio', 'session_duration_minutes']
+
+    def validate_role(self, value):
+        if value not in [User.Role.PATIENT, User.Role.PROFESSIONAL, User.Role.ADMIN]:
+            raise serializers.ValidationError('Role invalida.')
+        return value
+
+    def validate(self, attrs):
+        instance = self.instance
+        role = attrs.get('role')
+
+        if (
+            role == User.Role.PROFESSIONAL
+            and not hasattr(instance, 'professional_profile')
+            and not attrs.get('crp')
+        ):
+            raise serializers.ValidationError(
+                {'crp': 'CRP e obrigatorio para criar o perfil profissional.'}
+            )
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        profile_data = {
+            field: validated_data.pop(field)
+            for field in ['crp', 'specialty', 'bio', 'session_duration_minutes']
+            if field in validated_data
+        }
+        instance = super().update(instance, validated_data)
+        ensure_role_profile(instance, profile_data)
+        return instance
+
+
+class AdminUserStatusSerializer(serializers.Serializer):
+    is_active = serializers.BooleanField()
+
+    def update(self, instance, validated_data):
+        instance.is_active = validated_data['is_active']
+        instance.save(update_fields=['is_active'])
+        return instance
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def save(self):
+        email = self.validated_data['email']
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+
+        if user:
+            send_password_reset_email(user)
+
+
+class PasswordSetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    default_error_messages = {
+        'invalid_token': 'Token invalido ou expirado.',
+    }
+
+    def validate(self, attrs):
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            user = User.objects.get(pk=uid, is_active=True)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            self.fail('invalid_token')
+
+        if not default_token_generator.check_token(user, attrs['token']):
+            self.fail('invalid_token')
+
+        validate_password(attrs['password'], user)
+        attrs['user'] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data['user']
+        user.set_password(self.validated_data['password'])
+        user.save(update_fields=['password'])
+        return user

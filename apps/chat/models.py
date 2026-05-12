@@ -1,18 +1,19 @@
 import uuid
+
 from django.db import models
 
 
 class ChatMessage(models.Model):
     """
-    Mensagem do chat entre paciente e psicólogo.
+    Mensagem do chat entre paciente e profissional.
     content_encrypted: o frontend criptografa antes de enviar.
-    O servidor armazena sem conhecer o conteúdo real.
+    O servidor armazena sem conhecer o conteudo real.
     """
 
     class MessageType(models.TextChoices):
         TEXT = 'text', 'Texto'
         IMAGE = 'image', 'Imagem'
-        AUDIO = 'audio', 'Áudio'
+        AUDIO = 'audio', 'Audio'
         FILE = 'file', 'Arquivo'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -29,14 +30,31 @@ class ChatMessage(models.Model):
     appointment = models.ForeignKey(
         'appointments.Appointment',
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name='messages',
         help_text='Contexto da consulta (opcional)'
     )
 
-    content_encrypted = models.TextField(help_text='Conteúdo criptografado pelo frontend')
-    message_type = models.CharField(max_length=10, choices=MessageType.choices, default=MessageType.TEXT)
-    media_url = models.URLField(blank=True, help_text='URL do arquivo de mídia no storage')
+    content_encrypted = models.TextField(
+        blank=True,
+        help_text='Conteudo criptografado pelo frontend'
+    )
+    message_type = models.CharField(
+        max_length=10,
+        choices=MessageType.choices,
+        default=MessageType.TEXT
+    )
+    attachment = models.FileField(
+        upload_to='chat/attachments/%Y/%m/',
+        null=True,
+        blank=True
+    )
+    media_url = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text='URL do arquivo de midia no storage'
+    )
 
     read = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
@@ -46,4 +64,11 @@ class ChatMessage(models.Model):
         ordering = ['sent_at']
 
     def __str__(self):
-        return f'{self.sender} → {self.receiver} ({self.sent_at:%d/%m %H:%M})'
+        return f'{self.sender} -> {self.receiver} ({self.sent_at:%d/%m %H:%M})'
+
+    def save(self, *args, **kwargs):
+        if self.attachment:
+            self.media_url = self.attachment.url
+        elif self.message_type == self.MessageType.TEXT:
+            self.media_url = ''
+        super().save(*args, **kwargs)

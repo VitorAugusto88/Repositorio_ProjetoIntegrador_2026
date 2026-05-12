@@ -2,16 +2,53 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
+
+from apps.audit.models import AuditLog
+from apps.audit.services import (
+    changed_model_fields,
+    log_audit_event,
+    model_field_snapshot,
+)
 
 from .models import User, PatientProfile, ProfessionalProfile
 from .serializers import (
-    RegisterSerializer, UserSerializer,
-    PatientProfileSerializer, ProfessionalProfileSerializer,
+    AdminPatientCreateSerializer,
+    AdminProfessionalCreateSerializer,
+    AdminUserRoleSerializer,
+    AdminUserSerializer,
+    AdminUserStatusSerializer,
+    AdminUserUpdateSerializer,
+    UserSerializer,
+    PatientProfileSerializer,
+    ProfessionalProfileSerializer,
     CustomTokenObtainSerializer,
+    PatientListSerializer,
+    PasswordResetRequestSerializer,
+    PasswordSetConfirmSerializer,
 )
-from .permissions import IsAdminOrSelf, IsProfessionalOrAdmin
-from apps.accounts.serializers import PatientListSerializer
+from .permissions import (
+    IsAdminOnly,
+    IsPatientProfileInSameClinic,
+    IsProfessionalOrAdmin,
+    IsProfessionalProfileOwnerOrClinicAdmin,
+)
+
+
+PATIENT_PROFILE_AUDIT_FIELDS = [
+    'birth_date',
+    'cpf',
+    'medical_history',
+    'anamnesis',
+    'emergency_contact_name',
+    'emergency_contact_phone',
+]
+USER_PATIENT_AUDIT_FIELDS = ['email', 'full_name', 'phone', 'is_active', 'role']
+
+
+def patient_audit_target(user):
+    return getattr(user, 'patient_profile', None) or user
 
 
 class LoginView(TokenObtainPairView):
@@ -20,15 +57,18 @@ class LoginView(TokenObtainPairView):
     Retorna access_token e refresh_token com role embutida.
     """
     serializer_class = CustomTokenObtainSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
 
-class RegisterView(generics.CreateAPIView):
+class RegisterView(APIView):
     """
     POST /api/auth/register/
-    Cadastro publico - apenas pacientes.
+    Cadastro publico desativado.
     """
-    serializer_class = RegisterSerializer
-    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    permission_classes = []
+    http_method_names = ['options']
 
 
 class MeView(APIView):
@@ -59,16 +99,60 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
     Profissional e admin podem editar a anamnese.
     """
     serializer_class = PatientProfileSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsPatientProfileInSameClinic]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = PatientProfile.objects.select_related('user')
+
+        if user.is_superuser:
+            return queryset
+
+        if user.is_patient:
+            return queryset.filter(user=user)
+
+        if user.is_admin or user.is_professional:
+            if not user.clinic_id:
+                return queryset.none()
+            return queryset.filter(user__clinic_id=user.clinic_id)
+
+        return queryset.none()
 
     def get_object(self):
-        queryset = PatientProfile.objects.select_related('user')
         patient_profile = generics.get_object_or_404(
-            queryset,
+            self.get_queryset(),
             user__id=self.kwargs['user_id']
         )
         self.check_object_permissions(self.request, patient_profile)
         return patient_profile
+
+    def perform_update(self, serializer):
+        before = model_field_snapshot(
+            serializer.instance,
+            PATIENT_PROFILE_AUDIT_FIELDS,
+        )
+        patient_profile = serializer.save()
+        changed_fields = changed_model_fields(
+            before,
+            patient_profile,
+            PATIENT_PROFILE_AUDIT_FIELDS,
+        )
+
+        if changed_fields:
+            log_audit_event(
+                action=AuditLog.Action.PATIENT_UPDATED,
+                target=patient_profile,
+                request=self.request,
+                metadata={'changed_fields': changed_fields},
+            )
+
+        if 'anamnesis' in changed_fields:
+            log_audit_event(
+                action=AuditLog.Action.PATIENT_ANAMNESIS_UPDATED,
+                target=patient_profile,
+                request=self.request,
+                metadata={'changed_fields': ['anamnesis']},
+            )
 
 
 class ProfessionalListView(generics.ListAPIView):
@@ -77,7 +161,7 @@ class ProfessionalListView(generics.ListAPIView):
     Lista psicologos disponiveis para a clinica do usuario logado.
     """
     serializer_class = ProfessionalProfileSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
@@ -85,8 +169,10 @@ class ProfessionalListView(generics.ListAPIView):
 
         qs = ProfessionalProfile.objects.select_related('user').filter(user__is_active=True)
 
-        if user.is_superuser and requested_clinic_id:
-            return qs.filter(user__clinic_id=requested_clinic_id)
+        if user.is_superuser:
+            if requested_clinic_id:
+                return qs.filter(user__clinic_id=requested_clinic_id)
+            return qs
 
         if not user.clinic_id:
             return qs.none()
@@ -104,7 +190,7 @@ class ProfessionalDetailView(generics.RetrieveUpdateAPIView):
     Psicólogo edita o próprio perfil. Admin edita qualquer profissional da clínica.
     """
     serializer_class = ProfessionalProfileSerializer
-    permission_classes = [IsProfessionalOrAdmin]
+    permission_classes = [IsProfessionalProfileOwnerOrClinicAdmin]
 
     def get_queryset(self):
         user = self.request.user
@@ -122,16 +208,6 @@ class ProfessionalDetailView(generics.RetrieveUpdateAPIView):
         return ProfessionalProfile.objects.select_related('user').filter(
             user=user
         )
-
-    def get_object(self):
-        obj = super().get_object()
-
-        # Psicologo so pode editar o proprio perfil
-        user = self.request.user
-        if user.is_professional and obj.user != user:
-            raise PermissionDenied('Voce so pode editar o proprio perfil.')
-
-        return obj
 
 
 class ClinicPatientListView(generics.ListAPIView):
@@ -172,3 +248,189 @@ class ClinicPatientListView(generics.ListAPIView):
             ).distinct()
 
         return PatientProfile.objects.none()
+
+
+class AdminUserQuerysetMixin:
+    def get_queryset(self):
+        user = self.request.user
+        queryset = User.objects.select_related(
+            'clinic',
+            'patient_profile',
+            'professional_profile',
+        )
+
+        if user.is_superuser:
+            clinic_id = self.request.query_params.get('clinic_id')
+            if clinic_id:
+                return queryset.filter(clinic_id=clinic_id)
+            return queryset
+
+        if not user.clinic_id:
+            return queryset.none()
+
+        return queryset.filter(clinic_id=user.clinic_id)
+
+
+class AdminUserListView(AdminUserQuerysetMixin, generics.ListAPIView):
+    """
+    GET /api/auth/admin/users/
+    Lista usuarios da clinica do admin logado.
+    Superusers podem filtrar por ?clinic_id=.
+    """
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminOnly]
+
+
+class AdminPatientCreateView(generics.CreateAPIView):
+    """
+    POST /api/auth/admin/users/patients/
+    Cria paciente interno e envia convite para definicao de senha.
+    """
+    serializer_class = AdminPatientCreateSerializer
+    permission_classes = [IsAdminOnly]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        log_audit_event(
+            action=AuditLog.Action.PATIENT_CREATED,
+            target=patient_audit_target(user),
+            request=self.request,
+            metadata={
+                'user_id': str(user.id),
+                'email': user.email,
+                'send_invite': serializer.validated_data.get('send_invite', True),
+            },
+        )
+
+
+class AdminProfessionalCreateView(generics.CreateAPIView):
+    """
+    POST /api/auth/admin/users/professionals/
+    Cria profissional interno e envia convite para definicao de senha.
+    """
+    serializer_class = AdminProfessionalCreateSerializer
+    permission_classes = [IsAdminOnly]
+
+
+class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateAPIView):
+    """
+    GET/PATCH /api/auth/admin/users/<uuid>/
+    Edita dados basicos sem alterar role ou status.
+    """
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminOnly]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return AdminUserUpdateSerializer
+        return AdminUserSerializer
+
+    def perform_update(self, serializer):
+        before = model_field_snapshot(
+            serializer.instance,
+            USER_PATIENT_AUDIT_FIELDS,
+        )
+        user = serializer.save()
+        changed_fields = changed_model_fields(
+            before,
+            user,
+            USER_PATIENT_AUDIT_FIELDS,
+        )
+
+        if changed_fields and user.is_patient:
+            log_audit_event(
+                action=AuditLog.Action.PATIENT_UPDATED,
+                target=patient_audit_target(user),
+                request=self.request,
+                metadata={'changed_fields': changed_fields},
+            )
+
+
+class AdminUserStatusView(AdminUserQuerysetMixin, generics.UpdateAPIView):
+    """
+    PATCH /api/auth/admin/users/<uuid>/status/
+    Ativa ou desativa uma conta.
+    """
+    serializer_class = AdminUserStatusSerializer
+    permission_classes = [IsAdminOnly]
+
+    def perform_update(self, serializer):
+        before = model_field_snapshot(serializer.instance, ['is_active'])
+        user = serializer.save()
+        changed_fields = changed_model_fields(before, user, ['is_active'])
+
+        if changed_fields and user.is_patient:
+            log_audit_event(
+                action=AuditLog.Action.PATIENT_UPDATED,
+                target=patient_audit_target(user),
+                request=self.request,
+                metadata={'changed_fields': changed_fields},
+            )
+
+
+class AdminUserRoleView(AdminUserQuerysetMixin, generics.UpdateAPIView):
+    """
+    PATCH /api/auth/admin/users/<uuid>/role/
+    Altera role e cria o perfil necessario quando aplicavel.
+    """
+    serializer_class = AdminUserRoleSerializer
+    permission_classes = [IsAdminOnly]
+
+    def perform_update(self, serializer):
+        before = model_field_snapshot(serializer.instance, ['role'])
+        was_patient = serializer.instance.is_patient
+        user = serializer.save()
+        changed_fields = changed_model_fields(before, user, ['role'])
+
+        if changed_fields and (was_patient or user.is_patient):
+            log_audit_event(
+                action=AuditLog.Action.PATIENT_UPDATED,
+                target=patient_audit_target(user),
+                request=self.request,
+                metadata={'changed_fields': changed_fields},
+            )
+
+
+class PasswordResetRequestView(generics.GenericAPIView):
+    """
+    POST /api/auth/password/reset/
+    Solicita recuperacao de senha por email.
+    """
+    serializer_class = PasswordResetRequestSerializer
+    authentication_classes = []
+    permission_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset'
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({
+            'detail': 'Se o email existir, enviaremos instrucoes de recuperacao.'
+        })
+
+
+class PasswordResetConfirmView(generics.GenericAPIView):
+    """
+    POST /api/auth/password/reset/confirm/
+    Define uma nova senha usando uid e token.
+    """
+    serializer_class = PasswordSetConfirmSerializer
+    authentication_classes = []
+    permission_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset_confirm'
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Senha atualizada com sucesso.'})
+
+
+class PasswordInviteConfirmView(PasswordResetConfirmView):
+    """
+    POST /api/auth/password/invite/confirm/
+    Define a senha inicial usando uid e token do convite.
+    """

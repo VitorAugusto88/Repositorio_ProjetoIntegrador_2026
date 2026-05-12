@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from django.db import models
 from django.utils import timezone
 
@@ -79,6 +80,10 @@ class Appointment(models.Model):
     def can_cancel(self):
         """Cancelamento permitido até 24h antes."""
         return (self.scheduled_at - timezone.now()).total_seconds() > 86400
+
+    @property
+    def ends_at(self):
+        return self.scheduled_at + timedelta(minutes=self.duration_minutes)
 
 
 class SessionNote(models.Model):

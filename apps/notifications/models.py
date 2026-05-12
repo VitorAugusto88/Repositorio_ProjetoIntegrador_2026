@@ -8,10 +8,12 @@ class Notification(models.Model):
         APPOINTMENT_REMINDER = 'appointment_reminder', 'Lembrete de consulta'
         APPOINTMENT_CONFIRMED = 'appointment_confirmed', 'Consulta confirmada'
         APPOINTMENT_CANCELLED = 'appointment_cancelled', 'Consulta cancelada'
+        APPOINTMENT_RESCHEDULED = 'appointment_rescheduled', 'Consulta remarcada'
         NEW_MESSAGE = 'new_message', 'Nova mensagem'
         GENERAL = 'general', 'Geral'
 
     class Channel(models.TextChoices):
+        IN_APP = 'in_app', 'In-app'
         EMAIL = 'email', 'Email'
         SMS = 'sms', 'SMS'
         PUSH = 'push', 'Push'
@@ -32,6 +34,9 @@ class Notification(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     title = models.CharField(max_length=200)
     body = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
