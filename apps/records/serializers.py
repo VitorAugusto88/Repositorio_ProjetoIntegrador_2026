@@ -35,20 +35,34 @@ class DocumentSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.file.url)
         return None
 
-    def validate_file(self, value):
-        # Limite de 10MB por arquivo
-        limite = 10 * 1024 * 1024
-        if value.size > limite:
-            raise serializers.ValidationError(
-                'O arquivo não pode ser maior que 10MB.'
-            )
+import os
+import magic
 
-        # Extensões permitidas
-        extensoes = ['.pdf', '.png', '.jpg', '.jpeg', '.doc', '.docx']
-        import os
-        ext = os.path.splitext(value.name)[1].lower()
-        if ext not in extensoes:
-            raise serializers.ValidationError(
-                f'Tipo de arquivo não permitido. Use: {", ".join(extensoes)}'
-            )
-        return value
+ALLOWED_MIMES = {
+    '.pdf':  'application/pdf',
+    '.png':  'image/png',
+    '.jpg':  'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.doc':  'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+
+def validate_file(self, value):
+    limite = 10 * 1024 * 1024
+    if value.size > limite:
+        raise serializers.ValidationError('O arquivo não pode ser maior que 10MB.')
+
+    ext = os.path.splitext(value.name)[1].lower()
+    if ext not in ALLOWED_MIMES:
+        raise serializers.ValidationError(
+            f'Extensão não permitida. Use: {", ".join(ALLOWED_MIMES.keys())}'
+        )
+
+    mime = magic.from_buffer(value.read(2048), mime=True)
+    value.seek(0)
+    if mime != ALLOWED_MIMES[ext]:
+        raise serializers.ValidationError(
+            'O conteúdo do arquivo não corresponde à extensão informada.'
+        )
+
+    return value
