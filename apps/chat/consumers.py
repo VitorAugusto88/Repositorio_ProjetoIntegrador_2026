@@ -148,16 +148,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         return await self._get_user_from_token(raw_token)
 
     def _get_raw_token(self):
-        query_params = parse_qs(self.scope.get('query_string', b'').decode())
-        token = query_params.get('token') or query_params.get('access')
-        if token:
-            return token[0]
-
         headers = dict(self.scope.get('headers', []))
         authorization = headers.get(b'authorization', b'').decode()
         if authorization.lower().startswith('bearer '):
             return authorization.split(' ', 1)[1].strip()
-
         return None
 
     @database_sync_to_async
