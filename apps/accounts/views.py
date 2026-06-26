@@ -1,9 +1,11 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 from apps.audit.models import AuditLog
 from apps.audit.services import (
@@ -61,14 +63,27 @@ class LoginView(TokenObtainPairView):
     throttle_scope = 'login'
 
 
-class RegisterView(APIView):
+class LogoutView(APIView):
     """
-    POST /api/auth/register/
-    Cadastro publico desativado.
+    POST /api/auth/logout/
+    Encerra a sessao colocando o refresh token na blacklist.
+    Exige o refresh token no corpo: {"refresh": "<token>"}.
     """
-    authentication_classes = []
-    permission_classes = []
-    http_method_names = ['options']
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get('refresh')
+        if not refresh:
+            return Response(
+                {'detail': 'O refresh token e obrigatorio para sair.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            RefreshToken(refresh).blacklist()
+        except TokenError:
+            # Token ja expirado/invalido: a sessao esta encerrada de qualquer forma.
+            pass
+        return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
 class MeView(APIView):
