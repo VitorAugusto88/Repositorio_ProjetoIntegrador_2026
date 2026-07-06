@@ -39,6 +39,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     patient_detail = PatientProfileSerializer(source='patient', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
+    has_review = serializers.SerializerMethodField()
 
     # required=False permite que pacientes não enviem 'patient' no body —
     # perform_create injeta user.patient_profile automaticamente para eles.
@@ -53,13 +54,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient', 'professional', 'clinic',
             'scheduled_at', 'duration_minutes', 'status', 'status_display',
-            'cancel_reason', 'can_cancel',
+            'cancel_reason', 'can_cancel', 'has_review',
             'professional_detail', 'patient_detail',
             'created_at', 'updated_at',
         ]
         # 'patient' removido de read_only_fields para que admin/profissional
         # possam passar o UUID no body. perform_create injeta o valor para pacientes.
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_has_review(self, obj):
+        return hasattr(obj, 'rating')
 
     def validate_scheduled_at(self, value):
         if value <= timezone.now():
@@ -382,18 +386,10 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = ['id', 'appointment', 'score', 'comment', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        # appointment é injetado pelo perform_create via URL param — não precisa vir no body
+        read_only_fields = ['id', 'appointment', 'created_at']
 
     def validate_score(self, value):
         if not 1 <= value <= 5:
             raise serializers.ValidationError('A nota deve ser entre 1 e 5.')
-        return value
-
-    def validate_appointment(self, value):
-        if value.status != Appointment.Status.COMPLETED:
-            raise serializers.ValidationError(
-                'Só é possível avaliar consultas já realizadas.'
-            )
-        if hasattr(value, 'rating'):
-            raise serializers.ValidationError('Esta consulta já foi avaliada.')
         return value

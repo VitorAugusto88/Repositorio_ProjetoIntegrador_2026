@@ -81,14 +81,19 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             })
             return
 
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'chat.event',
-                'event': 'message.new',
-                'payload': result['message'],
-            }
-        )
+        try:
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    'type': 'chat.event',
+                    'event': 'message.new',
+                    'payload': result['message'],
+                }
+            )
+        except Exception:
+            # Redis indisponível — a mensagem foi salva no banco mas não será
+            # entregue em tempo real; o frontend irá sincronizar via polling.
+            pass
 
     async def _handle_message_read(self, payload):
         message_id = payload.get('message_id') or payload.get('id')
@@ -100,40 +105,49 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             })
             return
 
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'chat.event',
-                'event': 'message.read',
-                'payload': result,
-            }
-        )
+        try:
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    'type': 'chat.event',
+                    'event': 'message.read',
+                    'payload': result,
+                }
+            )
+        except Exception:
+            pass
 
     async def _broadcast_typing(self, payload):
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'chat.event',
-                'event': 'typing',
-                'payload': {
-                    'user': str(self.user.id),
-                    'is_typing': bool(payload.get('is_typing', True)),
-                },
-            }
-        )
+        try:
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    'type': 'chat.event',
+                    'event': 'typing',
+                    'payload': {
+                        'user': str(self.user.id),
+                        'is_typing': bool(payload.get('is_typing', True)),
+                    },
+                }
+            )
+        except Exception:
+            pass
 
     async def _broadcast_presence(self, is_online):
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'chat.event',
-                'event': 'presence',
-                'payload': {
-                    'user': str(self.user.id),
-                    'online': is_online,
-                },
-            }
-        )
+        try:
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    'type': 'chat.event',
+                    'event': 'presence',
+                    'payload': {
+                        'user': str(self.user.id),
+                        'online': is_online,
+                    },
+                }
+            )
+        except Exception:
+            pass
 
     async def chat_event(self, event):
         await self.send_json({

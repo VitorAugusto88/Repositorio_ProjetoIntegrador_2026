@@ -3,6 +3,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from apps.audit.models import AuditLog
@@ -59,6 +62,57 @@ class LoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        email = request.data.get('email', '')
+        if response.status_code == 200:
+            user = User.objects.filter(email__iexact=email).first()
+            log_audit_event(
+                action=AuditLog.Action.USER_LOGIN,
+                target_model='User',
+                target_id=str(user.id) if user else '',
+                target_repr=email,
+                request=request,
+                metadata={'email': email},
+            )
+        else:
+            log_audit_event(
+                action=AuditLog.Action.USER_LOGIN_FAILED,
+                target_model='User',
+                target_id='',
+                target_repr=email,
+                request=request,
+                metadata={'email': email},
+            )
+        return response
+
+
+class LogoutView(APIView):
+    """
+    POST /api/auth/logout/
+    Invalida o refresh token no servidor (blacklist) e registra o logout em auditoria.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except TokenError:
+                pass
+
+        log_audit_event(
+            action=AuditLog.Action.USER_LOGOUT,
+            target_model='User',
+            target_id=str(request.user.id),
+            target_repr=request.user.email,
+            request=request,
+            metadata={'email': request.user.email},
+        )
+        return Response({'detail': 'Logout realizado com sucesso.'})
 
 
 class RegisterView(APIView):

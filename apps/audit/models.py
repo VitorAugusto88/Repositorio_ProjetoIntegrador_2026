@@ -6,6 +6,9 @@ from django.db import models
 
 class AuditLog(models.Model):
     class Action(models.TextChoices):
+        USER_LOGIN = 'user.login', 'Login realizado'
+        USER_LOGIN_FAILED = 'user.login_failed', 'Tentativa de login falhou'
+        USER_LOGOUT = 'user.logout', 'Logout realizado'
         PATIENT_CREATED = 'patient.created', 'Paciente criado'
         PATIENT_UPDATED = 'patient.updated', 'Paciente editado'
         PATIENT_ANAMNESIS_UPDATED = (

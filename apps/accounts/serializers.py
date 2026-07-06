@@ -25,36 +25,22 @@ class CustomTokenObtainSerializer(TokenObtainPairSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    patient_profile_id = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'phone', 'role', 'clinic', 'is_active', 'created_at']
+        fields = [
+            'id', 'email', 'full_name', 'phone', 'role',
+            'clinic', 'is_active', 'created_at',
+            'patient_profile_id',
+        ]
         read_only_fields = ['id', 'email', 'role', 'clinic', 'is_active', 'created_at']
 
-
-class RegisterSerializer(serializers.ModelSerializer):
-    """Serializer de cadastro — paciente se registra por aqui."""
-    password = serializers.CharField(write_only=True, min_length=8)
-
-    class Meta:
-        model = User
-        fields = ['email', 'password', 'full_name', 'phone', 'role', 'clinic']
-
-    def validate_role(self, value):
-        # Registro público só pode criar pacientes
-        # Admin cria psicólogos pelo painel
-        if value not in [User.Role.PATIENT]:
-            raise serializers.ValidationError('Auto-cadastro permitido apenas para pacientes.')
-        return value
-
-    def validate_password(self, value):
-        validate_password(value)
-        return value
-
-    def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        # Cria perfil de paciente automaticamente
-        PatientProfile.objects.create(user=user)
-        return user
+    def get_patient_profile_id(self, obj):
+        try:
+            return str(obj.patient_profile.id)
+        except Exception:
+            return None
 
 
 class PatientProfileSerializer(serializers.ModelSerializer):

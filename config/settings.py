@@ -20,7 +20,10 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 # Producao: defina somente hosts reais da API, por exemplo:
 # ALLOWED_HOSTS=api.sua-clinica.com
-ALLOWED_HOSTS = csv_config("ALLOWED_HOSTS", default="localhost,127.0.0.1")
+ALLOWED_HOSTS = csv_config(
+    "ALLOWED_HOSTS",
+    default="127.0.0.1,localhost,192.168.100.131",
+)
 USE_S3_STORAGE = config("USE_S3_STORAGE", default=False, cast=bool)
 
 DJANGO_APPS = [
@@ -39,6 +42,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "channels",
+    "drf_spectacular",
 ]
 
 if USE_S3_STORAGE:
@@ -166,8 +170,14 @@ SIMPLE_JWT = {
 # CSRF_TRUSTED_ORIGINS=https://app.sua-clinica.com
 CORS_ALLOWED_ORIGINS = csv_config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:3000",
+    default=(
+        "http://localhost:3000,"
+        "http://localhost:8081,"
+        "http://127.0.0.1:3000,"
+        "http://127.0.0.1:8081"
+    ),
 )
+CORS_ALLOWED_ORIGIN_REGEXES = csv_config("CORS_ALLOWED_ORIGIN_REGEXES", default="")
 CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", default=False, cast=bool)
 CSRF_TRUSTED_ORIGINS = csv_config("CSRF_TRUSTED_ORIGINS", default="")
 
@@ -189,6 +199,11 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@clinicsystem
 EMAIL_BACKEND = config(
     "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
 )
+EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT_SECONDS", default=900, cast=int)
 
 AUTH_PASSWORD_VALIDATORS = [

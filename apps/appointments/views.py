@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from .models import Appointment, Availability, SessionNote, Rating
 from .serializers import (
@@ -189,7 +189,7 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         patient = getattr(user, 'patient_profile', None)
         if patient is None:
             raise PermissionDenied('Apenas pacientes podem agendar consultas.')
-
+        
         appointment = serializer.save(clinic_id=user.clinic_id, patient=patient)
         log_appointment_event(
             self.request,
@@ -333,8 +333,14 @@ class RatingCreateView(generics.CreateAPIView):
             Appointment,
             pk=self.kwargs['pk'],
             clinic_id=self.request.user.clinic_id,
-            patient=patient
+            patient=patient,
         )
+
+        if appointment.status != Appointment.Status.COMPLETED:
+            raise ValidationError({'detail': 'Só é possível avaliar consultas já realizadas.'})
+        if hasattr(appointment, 'rating'):
+            raise ValidationError({'detail': 'Esta consulta já foi avaliada.'})
+
         serializer.save(appointment=appointment)
 
 

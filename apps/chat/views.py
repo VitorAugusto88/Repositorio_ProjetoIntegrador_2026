@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -196,6 +196,13 @@ class ConversationListView(APIView):
             Q(sender=user) | Q(receiver=user)
         ).select_related('sender', 'receiver').order_by('-sent_at')
 
+        unread_by_sender = {
+            str(row['sender_id']): row['count']
+            for row in ChatMessage.objects.filter(receiver=user, read=False)
+            .values('sender_id')
+            .annotate(count=Count('id'))
+        }
+
         conversations = {}
         for message in messages:
             other = message.receiver if message.sender_id == user.id else message.sender
@@ -206,11 +213,7 @@ class ConversationListView(APIView):
             if not users_can_chat(user, other):
                 continue
 
-            unread = ChatMessage.objects.filter(
-                sender=other,
-                receiver=user,
-                read=False,
-            ).count()
+            unread = unread_by_sender.get(str(other.id), 0)
 
             conversations[other.id] = {
                 'user_id': str(other.id),

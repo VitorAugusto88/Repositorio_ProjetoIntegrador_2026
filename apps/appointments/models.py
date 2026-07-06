@@ -1,5 +1,7 @@
 import uuid
 from datetime import timedelta
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -29,6 +31,19 @@ class Availability(models.Model):
         verbose_name = 'Disponibilidade'
         ordering = ['weekday', 'start_time']
         unique_together = ['professional', 'weekday', 'start_time']
+
+    def clean(self):
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValidationError({'end_time': 'O horário de fim deve ser posterior ao de início.'})
+
+        overlapping = Availability.objects.filter(
+            professional=self.professional,
+            weekday=self.weekday,
+            start_time__lt=self.end_time,
+            end_time__gt=self.start_time,
+        ).exclude(pk=self.pk)
+        if overlapping.exists():
+            raise ValidationError('Este período sobrepõe outro horário já cadastrado para o mesmo profissional.')
 
     def __str__(self):
         return f'{self.professional} — {self.get_weekday_display()} {self.start_time}'
@@ -118,7 +133,10 @@ class Rating(models.Model):
         on_delete=models.CASCADE,
         related_name='rating'
     )
-    score = models.PositiveSmallIntegerField(help_text='1 a 5')
+    score = models.PositiveSmallIntegerField(
+        help_text='1 a 5',
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

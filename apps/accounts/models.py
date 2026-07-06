@@ -1,6 +1,19 @@
+import re
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
+
+
+def validate_cpf(value):
+    digits = re.sub(r'\D', '', value or '')
+    if len(digits) != 11 or len(set(digits)) == 1:
+        raise ValidationError('CPF inválido.')
+    for i in range(9, 11):
+        total = sum(int(digits[j]) * (i + 1 - j) for j in range(i))
+        check = (total * 10 % 11) % 10
+        if check != int(digits[i]):
+            raise ValidationError('CPF inválido.')
 
 
 class UserManager(BaseUserManager):
@@ -84,7 +97,7 @@ class PatientProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='patient_profile')
 
     birth_date = models.DateField(null=True, blank=True)
-    cpf = models.CharField(max_length=14, unique=True, null=True, blank=True)
+    cpf = models.CharField(max_length=14, unique=True, null=True, blank=True, validators=[validate_cpf])
     medical_history = models.TextField(blank=True, help_text='Histórico médico básico')
     anamnesis = models.TextField(blank=True, help_text='Anamnese inicial — editável pelo profissional')
     emergency_contact_name = models.CharField(max_length=150, blank=True)

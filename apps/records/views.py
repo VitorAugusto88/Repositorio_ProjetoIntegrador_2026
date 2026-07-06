@@ -18,9 +18,20 @@ from .serializers import DocumentSerializer
 def get_documents_for_user(user):
     if user.is_superuser:
         return Document.objects.select_related('patient__user')
-    if user.is_admin or user.is_professional:
+    if user.is_admin:
         return Document.objects.select_related('patient__user').filter(
             patient__user__clinic_id=user.clinic_id
+        )
+    if user.is_professional:
+        from apps.appointments.models import Appointment
+        patient_ids = (
+            Appointment.objects
+            .filter(professional=user.professional_profile, clinic_id=user.clinic_id)
+            .values_list('patient_id', flat=True)
+            .distinct()
+        )
+        return Document.objects.select_related('patient__user').filter(
+            patient_id__in=patient_ids
         )
     return Document.objects.select_related('patient__user').filter(
         patient=user.patient_profile
