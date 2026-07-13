@@ -1,0 +1,83 @@
+# Blueprint do Render. Em "New > Blueprint", aponte para este repositório.
+# Cada push na branch main dispara um novo deploy.
+#
+# Postgres: você JÁ tem um na nuvem, então este blueprint NÃO cria banco.
+# Cole sua connection string em DATABASE_URL no painel (marcada como sync:false).
+#
+# Variáveis com "sync: false" NÃO ficam no git — você as preenche no painel do
+# Render (Environment). As com valor fixo abaixo podem ser editadas lá também.
+services:
+  - type: web
+    name: clinica-api
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: "./build.sh"
+    # Daphne (ASGI) porque o chat usa WebSocket/Channels.
+    startCommand: "daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+    healthCheckPath: /api/docs/swagger/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: SECRET_KEY
+        generateValue: true            # Render gera uma chave forte
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "clinica-api.onrender.com"
+      - key: USE_X_FORWARDED_PROTO
+        value: "True"
+
+      # ── Banco (seu Postgres na nuvem) ──────────────────────────────────────
+      - key: DATABASE_URL
+        sync: false                     # cole a string do Supabase/Neon aqui
+
+      # ── CORS/CSRF/Frontend (troque pelo domínio real do Vercel) ────────────
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://sistemaclinico-ui.vercel.app"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://sistemaclinico-ui.vercel.app"
+      - key: FRONTEND_URL
+        value: "https://sistemaclinico-ui.vercel.app"
+
+      # ── Redis (Upstash) ────────────────────────────────────────────────────
+      - key: REDIS_URL
+        sync: false                     # rediss://default:SENHA@...upstash.io:6379
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "True"                   # sem worker separado por enquanto
+
+      # ── Storage de mídia (Cloudflare R2) ───────────────────────────────────
+      - key: USE_S3_STORAGE
+        value: "True"
+      - key: AWS_S3_REGION_NAME
+        value: "auto"
+      - key: AWS_MEDIA_LOCATION
+        value: "media"
+      - key: AWS_QUERYSTRING_AUTH
+        value: "False"                  # bucket público → URLs sem expiração
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false                     # https://<account>.r2.cloudflarestorage.com
+      - key: AWS_S3_CUSTOM_DOMAIN
+        sync: false                     # pub-xxxx.r2.dev (sem https://)
+
+      # ── E-mail (Brevo) ─────────────────────────────────────────────────────
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.smtp.EmailBackend"
+      - key: EMAIL_HOST
+        value: "smtp-relay.brevo.com"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false

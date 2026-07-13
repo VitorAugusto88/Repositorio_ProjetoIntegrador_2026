@@ -67,8 +67,12 @@ class ChatMessage(models.Model):
         return f'{self.sender} -> {self.receiver} ({self.sent_at:%d/%m %H:%M})'
 
     def save(self, *args, **kwargs):
-        if self.attachment:
-            self.media_url = self.attachment.url
-        elif self.message_type == self.MessageType.TEXT:
-            self.media_url = ''
+        # O super().save() aplica o upload_to e define o nome final do arquivo;
+        # so depois disso o attachment.url aponta para o caminho real. Calcular
+        # a media_url antes gravava o nome cru (sem chat/attachments/AAAA/MM/),
+        # gerando 404 ao abrir a imagem/audio no frontend.
         super().save(*args, **kwargs)
+        correct_url = self.attachment.url if self.attachment else ''
+        if self.media_url != correct_url:
+            self.media_url = correct_url
+            super().save(update_fields=['media_url'])

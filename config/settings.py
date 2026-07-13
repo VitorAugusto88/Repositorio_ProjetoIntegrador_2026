@@ -60,6 +60,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -219,6 +220,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Upstash (nuvem): use a connection string TLS (rediss://...). O channels_redis
+# aceita rediss:// direto. Para um worker Celery com Upstash, o broker exige
+# ssl_cert_reqs na URL — ver CELERY_BROKER_URL no .env.example.
 REDIS_URL = config("REDIS_URL", default="redis://127.0.0.1:6379/0")
 CHANNEL_LAYERS = {
     "default": {
@@ -276,10 +280,13 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
+# Cloudflare R2 (S3-compatível): defina USE_S3_STORAGE=True, AWS_S3_REGION_NAME=auto,
+# AWS_S3_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com (upload) e
+# AWS_S3_CUSTOM_DOMAIN=pub-xxxx.r2.dev (leitura pública) com AWS_QUERYSTRING_AUTH=False.
 if USE_S3_STORAGE:
     AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default=None)
     AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default=None)
