@@ -66,11 +66,14 @@ services:
       - key: AWS_S3_CUSTOM_DOMAIN
         sync: false                     # pub-xxxx.r2.dev (sem https://)
 
-      # ── E-mail (Brevo) ─────────────────────────────────────────────────────
+      # ── E-mail (Gmail SMTP) ────────────────────────────────────────────────
+      # EMAIL_HOST_USER = seu gmail; EMAIL_HOST_PASSWORD = SENHA DE APP (16 dígitos,
+      # exige 2FA ligado). Se o Google bloquear o login do IP do Render, aprove o
+      # acesso na conta Google (ou troque para um provedor transacional como Brevo).
       - key: EMAIL_BACKEND
         value: "django.core.mail.backends.smtp.EmailBackend"
       - key: EMAIL_HOST
-        value: "smtp-relay.brevo.com"
+        value: "smtp.gmail.com"
       - key: EMAIL_PORT
         value: "587"
       - key: EMAIL_USE_TLS
