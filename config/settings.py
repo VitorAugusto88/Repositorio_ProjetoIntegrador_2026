@@ -40,6 +40,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "channels",
     "drf_spectacular",
+    "anymail",
 ]
 
 if USE_S3_STORAGE:
@@ -200,6 +201,16 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
 EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
 EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=10, cast=int)
 PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT_SECONDS", default=900, cast=int)
+
+# Anymail — envio de e-mail via API HTTP (porta 443). Necessario em produção no
+# Render, que bloqueia as portas de SMTP (25/465/587) e faz o envio via Gmail
+# falhar com "Network is unreachable". Para ativar o Brevo, defina no ambiente:
+#   EMAIL_BACKEND=anymail.backends.brevo.EmailBackend
+#   BREVO_API_KEY=<sua-chave-da-api-brevo>
+# O DEFAULT_FROM_EMAIL precisa ser um remetente verificado no Brevo.
+ANYMAIL = {
+    "BREVO_API_KEY": config("BREVO_API_KEY", default=""),
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {

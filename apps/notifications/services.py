@@ -1,7 +1,11 @@
+import logging
+
 from django.conf import settings
 from django.utils import timezone
 
 from .models import Notification
+
+logger = logging.getLogger(__name__)
 
 
 def create_notification(
@@ -43,7 +47,17 @@ def enqueue_email_notification(notification):
     from .tasks import send_email_notification
 
     if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
-        send_email_notification(notification.id)
+        # Sem worker Celery, o envio roda dentro da requisicao. Uma falha de
+        # e-mail (ex.: SMTP bloqueado, provedor fora do ar) nao pode derrubar o
+        # endpoint com 500 — marcamos a notificacao como FAILED e seguimos.
+        try:
+            send_email_notification(notification.id)
+        except Exception:
+            logger.exception(
+                'Falha ao enviar e-mail da notificacao %s', notification.id
+            )
+            notification.status = Notification.Status.FAILED
+            notification.save(update_fields=['status'])
         return
 
     try:

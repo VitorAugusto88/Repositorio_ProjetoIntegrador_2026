@@ -66,21 +66,14 @@ services:
       - key: AWS_S3_CUSTOM_DOMAIN
         sync: false                     # pub-xxxx.r2.dev (sem https://)
 
-      # ── E-mail (Gmail SMTP) ────────────────────────────────────────────────
-      # EMAIL_HOST_USER = seu gmail; EMAIL_HOST_PASSWORD = SENHA DE APP (16 dígitos,
-      # exige 2FA ligado). Se o Google bloquear o login do IP do Render, aprove o
-      # acesso na conta Google (ou troque para um provedor transacional como Brevo).
+      # ── E-mail (Brevo via API HTTP) ────────────────────────────────────────
+      # O Render bloqueia as portas de SMTP (25/465/587), então SMTP (Gmail)
+      # falha com "Network is unreachable". Usamos o Brevo pela API HTTP (porta
+      # 443) através do django-anymail. Pegue a chave em Brevo → SMTP & API →
+      # API Keys, e cadastre um remetente VERIFICADO como DEFAULT_FROM_EMAIL.
       - key: EMAIL_BACKEND
-        value: "django.core.mail.backends.smtp.EmailBackend"
-      - key: EMAIL_HOST
-        value: "smtp.gmail.com"
-      - key: EMAIL_PORT
-        value: "587"
-      - key: EMAIL_USE_TLS
-        value: "True"
-      - key: EMAIL_HOST_USER
-        sync: false
-      - key: EMAIL_HOST_PASSWORD
-        sync: false
+        value: "anymail.backends.brevo.EmailBackend"
+      - key: BREVO_API_KEY
+        sync: false                     # chave da API do Brevo (xkeysib-...)
       - key: DEFAULT_FROM_EMAIL
-        sync: false
+        sync: false                     # remetente verificado no Brevo
