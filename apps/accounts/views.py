@@ -268,11 +268,13 @@ class ClinicPatientListView(generics.ListAPIView):
 class AdminUserQuerysetMixin:
     def get_queryset(self):
         user = self.request.user
+        # Contas arquivadas (excluídas com preservação de dados clínicos) somem
+        # das listas e não podem mais ser gerenciadas por aqui.
         queryset = User.objects.select_related(
             'clinic',
             'patient_profile',
             'professional_profile',
-        )
+        ).filter(is_archived=False)
 
         if user.is_superuser:
             clinic_id = self.request.query_params.get('clinic_id')
@@ -327,10 +329,13 @@ class AdminProfessionalCreateView(generics.CreateAPIView):
     permission_classes = [IsAdminOnly]
 
 
-class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateAPIView):
+class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateDestroyAPIView):
     """
-    GET/PATCH /api/auth/admin/users/<uuid>/
-    Edita dados basicos sem alterar role ou status.
+    GET/PATCH/DELETE /api/auth/admin/users/<uuid>/
+    - PATCH edita dados basicos sem alterar role ou status.
+    - DELETE exclui a conta. Com ?preserve_clinical_data=true a conta e apenas
+      arquivada/anonimizada (documentos e consultas ficam preservados); caso
+      contrario o usuario e apagado de vez, junto com todos os dados em cascata.
     """
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminOnly]
@@ -339,6 +344,31 @@ class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateAPIView
         if self.request.method in ['PUT', 'PATCH']:
             return AdminUserUpdateSerializer
         return AdminUserSerializer
+
+    def _wants_preserve(self, request):
+        raw = request.query_params.get('preserve_clinical_data')
+        if raw is None and isinstance(request.data, dict):
+            raw = request.data.get('preserve_clinical_data')
+        return str(raw).lower() in ('true', '1', 'yes')
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+
+        if user.id == request.user.id:
+            return Response(
+                {'detail': 'Voce nao pode excluir a propria conta.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if self._wants_preserve(request):
+            # Excluir preservando dados clinicos: anonimiza e arquiva.
+            user.archive()
+        else:
+            # Excluir tudo: apaga o usuario e, em cascata, perfil, documentos,
+            # consultas e mensagens.
+            user.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_update(self, serializer):
         before = model_field_snapshot(

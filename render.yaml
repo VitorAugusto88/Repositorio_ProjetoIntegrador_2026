@@ -23,8 +23,11 @@ services:
         generateValue: true            # Render gera uma chave forte
       - key: DEBUG
         value: "False"
+      # Ponto na frente = curinga p/ qualquer *.onrender.com. O Render adiciona
+      # um sufixo ao host real (ex.: clinica-api-gnbv.onrender.com), então fixar
+      # o nome exato quebra com DisallowedHost — o wildcard evita isso.
       - key: ALLOWED_HOSTS
-        value: "clinica-api.onrender.com"
+        value: ".onrender.com"
       - key: USE_X_FORWARDED_PROTO
         value: "True"
 

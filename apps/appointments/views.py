@@ -3,10 +3,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
-from .models import Appointment, Availability, SessionNote, Rating
+from .models import Appointment, Availability, SessionNote
 from .serializers import (
     AppointmentSerializer, AppointmentCancelSerializer,
-    AvailabilitySerializer, SessionNoteSerializer, RatingSerializer
+    AvailabilitySerializer, SessionNoteSerializer
 )
 from apps.accounts.permissions import CanManageAvailability, IsProfessionalOrAdmin
 from apps.audit.models import AuditLog
@@ -145,7 +145,14 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]  # CORRIGIDO: era AllowAny
 
     def get_queryset(self):
-        return get_appointments_for_user(self.request.user)
+        qs = get_appointments_for_user(self.request.user)
+
+        # Filtro opcional por paciente (PatientProfile.id) — usado pela ficha do
+        # paciente no frontend para montar o histórico de consultas.
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            qs = qs.filter(patient_id=patient_id)
+        return qs
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -281,7 +288,11 @@ class AppointmentCancelView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        serializer = AppointmentCancelSerializer(instance=appointment, data=request.data)
+        serializer = AppointmentCancelSerializer(
+            instance=appointment,
+            data=request.data,
+            context={'request': request},
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         log_appointment_event(
@@ -315,27 +326,6 @@ class SessionNoteView(generics.RetrieveUpdateAPIView):
         )
         note, _ = SessionNote.objects.get_or_create(appointment=appointment)
         return note
-
-
-class RatingCreateView(generics.CreateAPIView):
-    """
-    POST /api/appointments/<id>/rating/
-    """
-    serializer_class = RatingSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        patient = getattr(self.request.user, 'patient_profile', None)
-        if patient is None:
-            raise PermissionDenied('Apenas pacientes podem avaliar consultas.')
-
-        appointment = get_object_or_404(
-            Appointment,
-            pk=self.kwargs['pk'],
-            clinic_id=self.request.user.clinic_id,
-            patient=patient
-        )
-        serializer.save(appointment=appointment)
 
 
 class ProfessionalAppointmentSummaryView(APIView):

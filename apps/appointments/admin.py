@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Appointment, Availability, SessionNote, Rating
+from .models import Appointment, Availability, SessionNote
 
 
 @admin.register(Availability)
@@ -21,9 +21,3 @@ class AppointmentAdmin(admin.ModelAdmin):
 class SessionNoteAdmin(admin.ModelAdmin):
     list_display = ['appointment', 'created_at']
     search_fields = ['appointment__patient__user__full_name']
-
-
-@admin.register(Rating)
-class RatingAdmin(admin.ModelAdmin):
-    list_display = ['appointment', 'score', 'created_at']
-    list_filter = ['score']

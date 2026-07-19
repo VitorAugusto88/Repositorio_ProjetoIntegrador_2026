@@ -15,9 +15,6 @@ urlpatterns = [
     # Notas de sessão (só psicólogo)
     path('<uuid:pk>/notes/', views.SessionNoteView.as_view(), name='session-notes'),
 
-    # Avaliação pós-consulta (só paciente)
-    path('<uuid:pk>/rating/', views.RatingCreateView.as_view(), name='appointment-rating'),
-
     # Resumo do dashboard do psicólogo
     path('summary/', views.ProfessionalAppointmentSummaryView.as_view(), name='appointment-summary'),
 ]
@@ -26,4 +23,3 @@ urlpatterns = [
 #GET /api/appointments/ → lista todas as consultas do usuário
 #GET /api/appointments/abc-123/ → detalhes da consulta com ID abc-123
 #POST /api/appointments/abc-123/cancel/ → cancela essa consulta específica
-#POST /api/appointments/abc-123/rating/ → avalia essa consulta específica

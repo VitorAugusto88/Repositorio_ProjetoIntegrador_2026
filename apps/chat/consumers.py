@@ -41,7 +41,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 'contact': str(self.contact.id),
             },
         })
-        await self._broadcast_presence(is_online=True)
+        # reply=True: pede que quem ja estava na conversa responda com a propria
+        # presenca, para que este usuario que acabou de entrar saiba se o contato
+        # esta online (sem isso, quem conecta por ultimo ve o outro como ausente).
+        await self._broadcast_presence(is_online=True, reply=True)
 
     async def disconnect(self, close_code):
         if hasattr(self, 'group_name'):
@@ -122,7 +125,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
-    async def _broadcast_presence(self, is_online):
+    async def _broadcast_presence(self, is_online, reply=False):
         await self.channel_layer.group_send(
             self.group_name,
             {
@@ -132,10 +135,23 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                     'user': str(self.user.id),
                     'online': is_online,
                 },
+                # reply=True significa "estou entrando, respondam com sua presenca".
+                # A resposta (reply=False) nao dispara novas respostas, evitando loop.
+                'reply': reply,
             }
         )
 
     async def chat_event(self, event):
+        # Handshake de presenca: se outro usuario acabou de entrar (reply=True),
+        # respondemos com a nossa propria presenca para que ele saiba que estamos
+        # online. So respondemos a pedidos de terceiros (nao ao proprio eco).
+        if (
+            event.get('event') == 'presence'
+            and event.get('reply')
+            and event.get('payload', {}).get('user') != str(self.user.id)
+        ):
+            await self._broadcast_presence(is_online=True, reply=False)
+
         await self.send_json({
             'type': event['event'],
             'payload': event['payload'],
@@ -148,10 +164,20 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         return await self._get_user_from_token(raw_token)
 
     def _get_raw_token(self):
+        # 1) Header Authorization — clientes nativos (React Native) conseguem enviar.
         headers = dict(self.scope.get('headers', []))
         authorization = headers.get(b'authorization', b'').decode()
         if authorization.lower().startswith('bearer '):
             return authorization.split(' ', 1)[1].strip()
+
+        # 2) Query string ?token=... — no navegador o WebSocket NAO permite header
+        # customizado, entao o token vem na URL. Sem ler daqui, a conexao web falha
+        # na autenticacao e cai tudo no REST (presenca/lido so atualizam no reload).
+        query_string = self.scope.get('query_string', b'').decode()
+        token = parse_qs(query_string).get('token', [None])[0]
+        if token:
+            return token.strip()
+
         return None
 
     @database_sync_to_async

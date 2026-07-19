@@ -1,6 +1,7 @@
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -48,6 +49,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
+    # Conta "arquivada": o usuário foi excluído mas seus dados clínicos
+    # (documentos, consultas) foram preservados. A linha é mantida, porém
+    # anonimizada, e some das listas — para acesso futuro em um módulo próprio.
+    is_archived = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -75,6 +82,26 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_admin(self):
         return self.role == self.Role.ADMIN
+
+    def archive(self):
+        """
+        Exclui a conta preservando os dados clínicos vinculados (documentos,
+        consultas). Em vez de apagar a linha — o que removeria em cascata o
+        PatientProfile e seus Documentos —, bloqueamos o acesso e marcamos como
+        arquivada. O nome (full_name) é MANTIDO para que os registros clínicos
+        continuem identificáveis pelo nome do paciente mesmo após a remoção.
+        """
+        self.is_active = False
+        self.is_archived = True
+        self.archived_at = timezone.now()
+        self.phone = ''
+        # Libera o e-mail original (unique) mantendo a linha rastreável pelo id.
+        self.email = f'arquivado+{self.id}@arquivado.local'
+        self.set_unusable_password()
+        self.save(update_fields=[
+            'is_active', 'is_archived', 'archived_at',
+            'phone', 'email', 'password',
+        ])
 
 
 class PatientProfile(models.Model):

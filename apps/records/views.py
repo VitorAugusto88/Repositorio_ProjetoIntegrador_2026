@@ -1,5 +1,6 @@
 import mimetypes
 
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
@@ -16,15 +17,18 @@ from .serializers import DocumentSerializer
 
 
 def get_documents_for_user(user):
+    base = Document.objects.select_related('patient__user', 'clinic')
     if user.is_superuser:
-        return Document.objects.select_related('patient__user')
+        return base
     if user.is_admin or user.is_professional:
-        return Document.objects.select_related('patient__user').filter(
-            patient__user__clinic_id=user.clinic_id
+        # Documentos da clínica: vinculados a um paciente da clínica OU avulsos
+        # (sem paciente) marcados com a clínica. Inclui docs de pacientes
+        # arquivados, cujo PatientProfile é preservado.
+        return base.filter(
+            Q(patient__user__clinic_id=user.clinic_id)
+            | Q(clinic_id=user.clinic_id)
         )
-    return Document.objects.select_related('patient__user').filter(
-        patient=user.patient_profile
-    )
+    return base.filter(patient=user.patient_profile)
 
 
 class DocumentListCreateView(generics.ListCreateAPIView):
@@ -50,6 +54,22 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         patient_id = self.request.query_params.get('patient')
         if patient_id:
             qs = qs.filter(patient__user__id=patient_id)
+
+        # Filtros do módulo de documentos do admin.
+        scope = self.request.query_params.get('scope')
+        if scope == 'avulsos':
+            qs = qs.filter(patient__isnull=True)
+        elif scope == 'com_paciente':
+            qs = qs.filter(patient__isnull=False)
+        elif scope == 'arquivados':
+            qs = qs.filter(patient__user__is_archived=True)
+
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search)
+                | Q(patient__user__full_name__icontains=search)
+            )
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -72,18 +92,29 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         user = self.request.user
 
         if user.is_patient:
-            document = serializer.save(patient=user.patient_profile)
+            document = serializer.save(
+                patient=user.patient_profile,
+                clinic_id=user.clinic_id,
+            )
             self._log_document_created(document)
             return
 
         patient = serializer.validated_data.get('patient')
+
+        # Documento avulso (sem paciente): permitido para admin/profissional,
+        # escopado à clínica do usuário.
         if not patient:
-            raise PermissionDenied('Informe o paciente do documento.')
+            if not user.is_superuser and not user.clinic_id:
+                raise PermissionDenied('Usuario sem clinica vinculada.')
+            document = serializer.save(patient=None, clinic_id=user.clinic_id)
+            self._log_document_created(document)
+            return
 
         if not user.is_superuser and patient.user.clinic_id != user.clinic_id:
             raise PermissionDenied('Voce nao pode anexar documentos para outra clinica.')
 
-        document = serializer.save()
+        # Vincula também a clínica (facilita o escopo e sobrevive ao arquivamento).
+        document = serializer.save(clinic_id=patient.user.clinic_id)
         self._log_document_created(document)
 
     def _log_document_created(self, document):
@@ -92,7 +123,7 @@ class DocumentListCreateView(generics.ListCreateAPIView):
             target=document,
             request=self.request,
             metadata={
-                'patient_id': str(document.patient_id),
+                'patient_id': str(document.patient_id) if document.patient_id else None,
                 'file_type': document.file_type,
             },
         )
@@ -136,7 +167,7 @@ class DocumentDetailView(generics.RetrieveDestroyAPIView):
             request=request,
             metadata={
                 'access_type': 'detail',
-                'patient_id': str(document.patient_id),
+                'patient_id': str(document.patient_id) if document.patient_id else None,
                 'file_type': document.file_type,
             },
         )
@@ -157,7 +188,7 @@ class DocumentDetailView(generics.RetrieveDestroyAPIView):
             target=document,
             request=request,
             metadata={
-                'patient_id': str(document.patient_id),
+                'patient_id': str(document.patient_id) if document.patient_id else None,
                 'file_type': document.file_type,
             },
         )
@@ -189,7 +220,7 @@ class DocumentDownloadView(APIView):
             request=request,
             metadata={
                 'access_type': 'download',
-                'patient_id': str(document.patient_id),
+                'patient_id': str(document.patient_id) if document.patient_id else None,
                 'file_type': document.file_type,
             },
         )

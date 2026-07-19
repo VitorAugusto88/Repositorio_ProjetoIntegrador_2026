@@ -65,6 +65,9 @@ class Appointment(models.Model):
     duration_minutes = models.PositiveIntegerField(default=50)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
     cancel_reason = models.TextField(blank=True)
+    # Data/hora em que a consulta foi de fato realizada. Preenchido ao concluir —
+    # permite concluir uma consulta adiantada sem manter a data agendada no futuro.
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -107,23 +110,3 @@ class SessionNote(models.Model):
 
     def __str__(self):
         return f'Nota — {self.appointment}'
-
-
-class Rating(models.Model):
-    """Avaliação anônima pós-consulta feita pelo paciente."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    appointment = models.OneToOneField(
-        Appointment,
-        on_delete=models.CASCADE,
-        related_name='rating'
-    )
-    score = models.PositiveSmallIntegerField(help_text='1 a 5')
-    comment = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Avaliação'
-
-    def __str__(self):
-        return f'Avaliação {self.score}/5 — {self.appointment}'

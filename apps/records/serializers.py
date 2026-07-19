@@ -16,14 +16,34 @@ class DocumentSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    # Campos de exibição para o módulo de documentos do admin.
+    patient_name = serializers.SerializerMethodField()
+    patient_archived = serializers.SerializerMethodField()
+    is_avulso = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
         fields = [
-            'id', 'patient', 'title', 'file', 'file_url',
+            'id', 'patient', 'patient_name', 'patient_archived', 'is_avulso',
+            'title', 'file', 'file_url',
             'file_type', 'file_type_display', 'uploaded_at'
         ]
-        read_only_fields = ['id', 'uploaded_at', 'file_url']
+        read_only_fields = [
+            'id', 'uploaded_at', 'file_url',
+            'patient_name', 'patient_archived', 'is_avulso',
+        ]
+
+    def get_patient_name(self, obj):
+        if obj.patient_id and obj.patient and obj.patient.user:
+            return obj.patient.user.full_name
+        return None
+
+    def get_patient_archived(self, obj):
+        return bool(obj.patient_id and obj.patient and obj.patient.user
+                    and obj.patient.user.is_archived)
+
+    def get_is_avulso(self, obj):
+        return obj.patient_id is None
 
     def get_file_url(self, obj):
         """
