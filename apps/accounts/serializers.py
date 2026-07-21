@@ -92,6 +92,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
     specialty = serializers.CharField(required=False, allow_blank=True, write_only=True)
     bio = serializers.CharField(required=False, allow_blank=True, write_only=True)
     session_duration_minutes = serializers.IntegerField(required=False, write_only=True)
+    photo = serializers.ImageField(required=False, allow_null=True, write_only=True)
     birth_date = serializers.DateField(required=False, allow_null=True, write_only=True)
     cpf = serializers.CharField(required=False, allow_blank=True, write_only=True)
     medical_history = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -112,7 +113,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'full_name', 'phone', 'role', 'clinic',
-            'crp', 'specialty', 'bio', 'session_duration_minutes',
+            'crp', 'specialty', 'bio', 'session_duration_minutes', 'photo',
             'birth_date', 'cpf', 'medical_history', 'anamnesis',
             'emergency_contact_name', 'emergency_contact_phone',
             'send_invite',
@@ -163,7 +164,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
             'emergency_contact_name', 'emergency_contact_phone',
         ]
         professional_fields = [
-            'crp', 'specialty', 'bio', 'session_duration_minutes',
+            'crp', 'specialty', 'bio', 'session_duration_minutes', 'photo',
         ]
         profile_data = {}
         allowed_fields = patient_fields if role == User.Role.PATIENT else professional_fields
