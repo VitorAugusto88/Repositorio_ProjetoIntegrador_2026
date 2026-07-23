@@ -62,13 +62,18 @@ def appointment_matches_chat(appointment, sender, receiver):
 
 class ChatContactSerializer(serializers.ModelSerializer):
     initials = serializers.SerializerMethodField()
+    online = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "full_name", "role", "initials"]
+        fields = ["id", "full_name", "role", "initials", "online"]
 
     def get_initials(self, obj):
         return user_initials(obj)
+
+    def get_online(self, obj):
+        from .presence import is_user_online
+        return is_user_online(obj.id)
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):

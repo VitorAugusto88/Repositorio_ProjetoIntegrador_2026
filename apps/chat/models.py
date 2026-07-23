@@ -76,3 +76,32 @@ class ChatMessage(models.Model):
         if self.media_url != correct_url:
             self.media_url = correct_url
             super().save(update_fields=['media_url'])
+
+
+class Presence(models.Model):
+    """
+    Presenca online de um usuario, derivada das conexoes WebSocket do chat.
+
+    connection_count e incrementado a cada connect e decrementado a cada
+    disconnect (um usuario pode ter varias abas/aparelhos). is_online = ha
+    ao menos uma conexao viva. Serve como fonte de verdade para:
+      - o campo 'online' das conversas/contatos (antes hardcoded como False);
+      - a decisao de mandar push de chat so quando o destinatario esta offline.
+    """
+
+    user = models.OneToOneField(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='presence',
+        primary_key=True,
+    )
+    connection_count = models.PositiveIntegerField(default=0)
+    is_online = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Presenca'
+        verbose_name_plural = 'Presencas'
+
+    def __str__(self):
+        return f'{self.user} ({"online" if self.is_online else "offline"})'

@@ -34,6 +34,12 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
+        # Presenca persistida: marca o usuario online enquanto esta conexao vive.
+        # E a fonte de verdade para o campo 'online' das conversas e para decidir
+        # se manda push de chat (so quando o destinatario esta offline).
+        await self._mark_online()
+        self._presence_marked = True
+
         await self.send_json({
             'type': 'connection.accepted',
             'payload': {
@@ -47,6 +53,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         await self._broadcast_presence(is_online=True, reply=True)
 
     async def disconnect(self, close_code):
+        if getattr(self, '_presence_marked', False):
+            await self._mark_offline()
+            self._presence_marked = False
         if hasattr(self, 'group_name'):
             await self._broadcast_presence(is_online=False)
             await self.channel_layer.group_discard(
@@ -193,6 +202,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             return None
 
         return user
+
+    @database_sync_to_async
+    def _mark_online(self):
+        from .presence import mark_online
+        mark_online(self.user.id)
+
+    @database_sync_to_async
+    def _mark_offline(self):
+        from .presence import mark_offline
+        mark_offline(self.user.id)
 
     @database_sync_to_async
     def _get_contact(self, contact_id):

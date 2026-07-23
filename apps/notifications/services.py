@@ -71,7 +71,17 @@ def enqueue_push_notification(notification):
     from .tasks import send_firebase_push_notification
 
     if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
-        send_firebase_push_notification(notification.id)
+        # Sem worker Celery, o envio roda dentro da requisicao. Uma falha de push
+        # (rede/Expo fora do ar) nao pode derrubar o fluxo que originou a
+        # notificacao (ex.: salvar uma mensagem de chat) — marcamos FAILED e segue.
+        try:
+            send_firebase_push_notification(notification.id)
+        except Exception:
+            logger.exception(
+                'Falha ao enviar push da notificacao %s', notification.id
+            )
+            notification.status = Notification.Status.FAILED
+            notification.save(update_fields=['status'])
         return
 
     try:
@@ -140,6 +150,8 @@ def notify_appointment_rescheduled(appointment):
 
 
 def notify_new_chat_message(message):
+    from apps.chat.presence import is_user_online
+
     title = 'Nova mensagem'
     body = f'Voce recebeu uma nova mensagem de {message.sender.full_name}.'
     metadata = {
@@ -154,32 +166,48 @@ def notify_new_chat_message(message):
         body=body,
         metadata=metadata,
     )
-    create_notification(
-        user=message.receiver,
-        notification_type=Notification.Type.NEW_MESSAGE,
-        title=title,
-        body=body,
-        channel=Notification.Channel.PUSH,
-        metadata=metadata,
-    )
+    # Push so quando o destinatario esta com o app/web fechado. Com o app aberto
+    # o WebSocket ja entrega em tempo real — mandar push duplicaria o aviso.
+    if not is_user_online(message.receiver_id):
+        create_notification(
+            user=message.receiver,
+            notification_type=Notification.Type.NEW_MESSAGE,
+            title=title,
+            body=body,
+            channel=Notification.Channel.PUSH,
+            metadata=metadata,
+        )
     return notification
 
 
-def notify_appointment_reminder(appointment):
+def notify_appointment_reminder(appointment, reminder_kind='24h'):
+    # Dedup por tipo de janela: o lembrete de "24h" nao impede o de "1h".
     already_sent = Notification.objects.filter(
         user__in=[appointment.patient.user, appointment.professional.user],
         type=Notification.Type.APPOINTMENT_REMINDER,
         metadata__appointment_id=str(appointment.id),
+        metadata__reminder_kind=reminder_kind,
     ).exists()
 
     if already_sent:
         return 0
 
-    title = 'Lembrete de consulta'
-    body = (
-        f'Voce tem uma consulta em {appointment.scheduled_at:%d/%m/%Y %H:%M} '
-        f'na clinica {appointment.clinic.name}.'
-    )
+    # scheduled_at e gravado em UTC; converte para o fuso local (America/Sao_Paulo)
+    # para exibir o horario correto na mensagem.
+    quando = timezone.localtime(appointment.scheduled_at)
+    if reminder_kind == '1h':
+        title = 'Sua consulta e daqui a pouco'
+        body = (
+            f'Voce tem uma consulta as {quando:%H:%M} de hoje '
+            f'na clinica {appointment.clinic.name}.'
+        )
+    else:
+        title = 'Lembrete de consulta'
+        body = (
+            f'Voce tem uma consulta em {quando:%d/%m/%Y %H:%M} '
+            f'na clinica {appointment.clinic.name}.'
+        )
+
     recipients = [appointment.patient.user, appointment.professional.user]
     return _notify_recipients(
         recipients=recipients,
@@ -188,6 +216,7 @@ def notify_appointment_reminder(appointment):
         body=body,
         metadata={
             'appointment_id': str(appointment.id),
+            'reminder_kind': reminder_kind,
             'event': 'appointment_reminder',
         },
         send_email=True,

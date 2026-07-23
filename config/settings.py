@@ -260,6 +260,13 @@ CELERY_BEAT_SCHEDULE = {
 
 FIREBASE_PUSH_ENABLED = config("FIREBASE_PUSH_ENABLED", default=False, cast=bool)
 
+# Push habilitado (Expo Push Service). PUSH_ENABLED e o nome atual; mantem
+# compatibilidade com o antigo FIREBASE_PUSH_ENABLED como default.
+PUSH_ENABLED = config("PUSH_ENABLED", default=FIREBASE_PUSH_ENABLED, cast=bool)
+# Opcional: Access Token do Expo (expo.dev > Account > Access Tokens). Vazio =
+# envio anonimo (aceito pelo Expo). Recomendado em producao para reforcar seguranca.
+EXPO_ACCESS_TOKEN = config("EXPO_ACCESS_TOKEN", default="")
+
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=not DEBUG, cast=bool)
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=not DEBUG, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=not DEBUG, cast=bool)

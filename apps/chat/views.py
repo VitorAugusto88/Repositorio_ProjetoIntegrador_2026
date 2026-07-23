@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import ChatMessage
+from .presence import is_user_online
 from .serializers import (
     ChatContactSerializer,
     ChatMessageSerializer,
@@ -26,7 +27,7 @@ def format_chat_contact(user):
         'full_name': user.full_name,
         'role': user.role,
         'initials': user_initials(user),
-        'online': False,
+        'online': is_user_online(user.id),
     }
 
 
