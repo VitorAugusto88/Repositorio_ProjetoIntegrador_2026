@@ -87,39 +87,46 @@ services:
       - key: EXPO_ACCESS_TOKEN
         sync: false                     # opcional; vazio = envio anônimo
 
-  # ── Agendador de lembretes (Render Cron Job) ─────────────────────────────────
-  # ⚠️ ATENÇÃO: Cron Jobs no Render NÃO são gratuitos (~US$1/mês por job). Se
-  # quiser custo zero, remova este bloco e dispare "python manage.py
-  # enviar_lembretes" por um agendador externo (ex.: GitHub Actions agendado).
-  # As variáveis abaixo têm os MESMOS valores do serviço web (preencha no painel).
-  - type: cron
-    name: clinica-lembretes
-    runtime: python
-    plan: free
-    branch: main
-    buildCommand: "./build.sh"
-    schedule: "*/15 * * * *"           # a cada 15 min
-    startCommand: "python manage.py enviar_lembretes"
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.12.6"
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DEBUG
-        value: "False"
-      - key: ALLOWED_HOSTS
-        value: ".onrender.com"
-      - key: DATABASE_URL
-        sync: false                     # mesma string do serviço web
-      - key: CELERY_TASK_ALWAYS_EAGER
-        value: "True"
-      - key: EMAIL_BACKEND
-        value: "anymail.backends.brevo.EmailBackend"
-      - key: BREVO_API_KEY
-        sync: false
-      - key: DEFAULT_FROM_EMAIL
-        sync: false
-      - key: PUSH_ENABLED
-        value: "True"
-      - key: EXPO_ACCESS_TOKEN
-        sync: false
+  # ── Agendador de lembretes (Render Cron Job) — DESATIVADO ────────────────────
+  # ⚠️ DESATIVADO porque Cron Jobs no Render são PAGOS (~US$1/mês por job) e
+  # estamos no free tier — mantê-lo aqui faz o deploy do blueprint falhar.
+  #
+  # PARA REATIVAR (ao assinar um plano pago): descomente TODO o bloco abaixo
+  # (remova o "# " de cada linha). Lembre de repreencher no painel do Render as
+  # variáveis marcadas com "sync: false" (têm os MESMOS valores do serviço web).
+  #
+  # Enquanto estiver desativado, os lembretes NÃO disparam sozinhos. Alternativa
+  # de custo zero: agendar "python manage.py enviar_lembretes" por um serviço
+  # externo (ex.: GitHub Actions agendado, cron-job.org).
+  #
+  # - type: cron
+  #   name: clinica-lembretes
+  #   runtime: python
+  #   plan: free
+  #   branch: main
+  #   buildCommand: "./build.sh"
+  #   schedule: "*/15 * * * *"           # a cada 15 min
+  #   startCommand: "python manage.py enviar_lembretes"
+  #   envVars:
+  #     - key: PYTHON_VERSION
+  #       value: "3.12.6"
+  #     - key: SECRET_KEY
+  #       generateValue: true
+  #     - key: DEBUG
+  #       value: "False"
+  #     - key: ALLOWED_HOSTS
+  #       value: ".onrender.com"
+  #     - key: DATABASE_URL
+  #       sync: false                     # mesma string do serviço web
+  #     - key: CELERY_TASK_ALWAYS_EAGER
+  #       value: "True"
+  #     - key: EMAIL_BACKEND
+  #       value: "anymail.backends.brevo.EmailBackend"
+  #     - key: BREVO_API_KEY
+  #       sync: false
+  #     - key: DEFAULT_FROM_EMAIL
+  #       sync: false
+  #     - key: PUSH_ENABLED
+  #       value: "True"
+  #     - key: EXPO_ACCESS_TOKEN
+  #       sync: false

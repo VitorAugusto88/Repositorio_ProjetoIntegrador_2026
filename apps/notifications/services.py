@@ -209,6 +209,9 @@ def notify_appointment_reminder(appointment, reminder_kind='24h'):
         )
 
     recipients = [appointment.patient.user, appointment.professional.user]
+    # Consultas nao geram e-mail (decisao de produto): e-mail fica so para
+    # senha/login (convite e recuperacao, em utils.py). O lembrete de consulta
+    # avisa apenas por in-app e push.
     return _notify_recipients(
         recipients=recipients,
         notification_type=Notification.Type.APPOINTMENT_REMINDER,
@@ -219,7 +222,7 @@ def notify_appointment_reminder(appointment, reminder_kind='24h'):
             'reminder_kind': reminder_kind,
             'event': 'appointment_reminder',
         },
-        send_email=True,
+        send_email=False,
         send_push=True,
     )
 
