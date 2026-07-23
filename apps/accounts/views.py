@@ -29,6 +29,7 @@ from .serializers import (
     PatientListSerializer,
     PasswordResetRequestSerializer,
     PasswordSetConfirmSerializer,
+    ChangePasswordSerializer,
 )
 from .permissions import (
     IsAdminOnly,
@@ -479,3 +480,18 @@ class PasswordInviteConfirmView(PasswordResetConfirmView):
     POST /api/auth/password/invite/confirm/
     Define a senha inicial usando uid e token do convite.
     """
+
+
+class ChangePasswordView(generics.GenericAPIView):
+    """
+    POST /api/auth/password/change/
+    Troca a senha do usuario autenticado (senha atual + nova). Sem e-mail.
+    """
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Senha atualizada com sucesso.'})

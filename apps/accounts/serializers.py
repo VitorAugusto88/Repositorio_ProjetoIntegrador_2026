@@ -286,3 +286,32 @@ class PasswordSetConfirmSerializer(serializers.Serializer):
         user.set_password(self.validated_data['password'])
         user.save(update_fields=['password'])
         return user
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """
+    Troca de senha do usuario autenticado: confere a senha atual e aplica a
+    nova. Sem e-mail (o fluxo por e-mail e so para quem NAO consegue logar).
+    """
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    default_error_messages = {
+        'wrong_password': 'Senha atual incorreta.',
+    }
+
+    def validate_current_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            self.fail('wrong_password')
+        return value
+
+    def validate_new_password(self, value):
+        validate_password(value, self.context['request'].user)
+        return value
+
+    def save(self):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return user
