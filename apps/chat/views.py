@@ -1,6 +1,6 @@
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -37,11 +37,46 @@ def format_message_summary(message):
         'content_encrypted': message.content_encrypted,
         'message_type': message.message_type,
         'media_url': message.media_url,
+        'media_name': message.media_name,
         'sender_id': str(message.sender_id),
         'receiver_id': str(message.receiver_id),
         'read': message.read,
         'sent_at': message.sent_at,
     }
+
+
+def exclude_hidden_for(queryset, user):
+    """Remove da lista as mensagens que o usuario logado ocultou (exclusao so
+    para mim). Nao afeta o que o outro lado ve."""
+    return queryset.exclude(
+        Q(sender=user, deleted_for_sender=True)
+        | Q(receiver=user, deleted_for_receiver=True)
+    )
+
+
+def _delete_message_file(message):
+    """Remove o anexo fisico/remoto da mensagem, ignorando arquivos ja
+    inexistentes ou storage indisponivel."""
+    try:
+        if message.attachment:
+            message.attachment.delete(save=False)
+    except Exception:
+        pass
+
+
+def _hide_messages_for(queryset, user):
+    """Oculta todas as mensagens do queryset para o usuario logado e remove de
+    vez as que os dois lados ja ocultaram."""
+    queryset.filter(sender=user).update(deleted_for_sender=True)
+    queryset.filter(receiver=user).update(deleted_for_receiver=True)
+
+    both_hidden = queryset.filter(
+        deleted_for_sender=True,
+        deleted_for_receiver=True,
+    )
+    for message in both_hidden:
+        _delete_message_file(message)
+    both_hidden.delete()
 
 
 def get_allowed_contact_queryset(user):
@@ -82,8 +117,9 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         other_user_id = self.request.query_params.get('with')
 
-        queryset = ChatMessage.objects.filter(
-            Q(sender=user) | Q(receiver=user)
+        queryset = exclude_hidden_for(
+            ChatMessage.objects.filter(Q(sender=user) | Q(receiver=user)),
+            user,
         ).select_related('sender', 'receiver', 'appointment').order_by('sent_at')
 
         if not other_user_id:
@@ -168,6 +204,93 @@ class ChatConversationReadView(APIView):
         return Response({'marked_read': updated})
 
 
+class ChatMessageDeleteView(APIView):
+    """
+    DELETE /api/chat/messages/<id>/?for_everyone=true
+    Apaga uma mensagem.
+      - for_everyone=true: so o remetente pode, e so enquanto nao lida. Remove
+        a linha para os dois lados e avisa em tempo real (message.deleted).
+      - caso contrario: oculta so para o usuario logado (o outro mantem).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        user = request.user
+        message = get_object_or_404(
+            ChatMessage.objects.filter(Q(sender=user) | Q(receiver=user)),
+            pk=pk,
+        )
+
+        for_everyone = str(
+            request.query_params.get('for_everyone', '')
+        ).lower() in ('true', '1', 'yes')
+
+        if for_everyone:
+            if message.sender_id != user.id:
+                raise PermissionDenied('Apenas quem enviou pode apagar para todos.')
+            if message.read:
+                raise ValidationError(
+                    {'detail': 'A mensagem ja foi lida; so e possivel apagar para voce.'}
+                )
+            group = conversation_group_name(message.sender_id, message.receiver_id)
+            message_id = str(message.id)
+            _delete_message_file(message)
+            message.delete()
+            broadcast_chat_event(group, 'message.deleted', {'id': message_id})
+            return Response({'deleted': 'everyone'})
+
+        # Exclusao so para mim.
+        if message.sender_id == user.id:
+            message.deleted_for_sender = True
+        if message.receiver_id == user.id:
+            message.deleted_for_receiver = True
+
+        if message.deleted_for_sender and message.deleted_for_receiver:
+            _delete_message_file(message)
+            message.delete()
+        else:
+            message.save(update_fields=['deleted_for_sender', 'deleted_for_receiver'])
+
+        return Response({'deleted': 'me'})
+
+
+class ChatClearConversationView(APIView):
+    """
+    DELETE /api/chat/messages/clear/?with=<user_id>
+    Apaga a conversa com um usuario apenas para o usuario logado.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        other_user_id = request.query_params.get('with')
+        if not other_user_id:
+            raise ValidationError({'with': 'Informe o usuario da conversa.'})
+
+        other_user = get_object_or_404(User, pk=other_user_id)
+        queryset = ChatMessage.objects.filter(
+            Q(sender=user, receiver=other_user)
+            | Q(sender=other_user, receiver=user)
+        )
+        _hide_messages_for(queryset, user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChatClearAllView(APIView):
+    """
+    DELETE /api/chat/messages/clear-all/
+    Apaga todas as mensagens de todas as conversas apenas para o usuario logado.
+    O outro lado de cada conversa mantem as mensagens.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        queryset = ChatMessage.objects.filter(Q(sender=user) | Q(receiver=user))
+        _hide_messages_for(queryset, user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class UnreadCountView(APIView):
     """
     GET /api/chat/unread/
@@ -178,7 +301,8 @@ class UnreadCountView(APIView):
     def get(self, request):
         count = ChatMessage.objects.filter(
             receiver=request.user,
-            read=False
+            read=False,
+            deleted_for_receiver=False,
         ).count()
         return Response({'unread_count': count})
 
@@ -193,8 +317,9 @@ class ConversationListView(APIView):
     def get(self, request):
         user = request.user
 
-        messages = ChatMessage.objects.filter(
-            Q(sender=user) | Q(receiver=user)
+        messages = exclude_hidden_for(
+            ChatMessage.objects.filter(Q(sender=user) | Q(receiver=user)),
+            user,
         ).select_related('sender', 'receiver').order_by('-sent_at')
 
         conversations = {}
@@ -211,6 +336,7 @@ class ConversationListView(APIView):
                 sender=other,
                 receiver=user,
                 read=False,
+                deleted_for_receiver=False,
             ).count()
 
             conversations[other.id] = {
@@ -225,6 +351,28 @@ class ConversationListView(APIView):
             }
 
         return Response(list(conversations.values()))
+
+
+class ChatPresenceView(APIView):
+    """
+    GET /api/chat/presence/?with=<user_id>
+    Retorna se o outro usuario da conversa esta online (fonte: modelo Presence,
+    alimentado pelas conexoes WebSocket e persistido no banco compartilhado).
+    O frontend usa isto para exibir Online/Ausente de forma confiavel mesmo
+    quando os eventos de presenca em tempo real nao chegam.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        other_user_id = request.query_params.get('with')
+        if not other_user_id:
+            raise ValidationError({'with': 'Informe o usuario da conversa.'})
+
+        other_user = get_object_or_404(User, pk=other_user_id)
+        if not users_can_chat(request.user, other_user):
+            raise PermissionDenied('Voce nao pode acessar esta conversa.')
+
+        return Response({'online': is_user_online(other_user.id)})
 
 
 class ChatContactListView(APIView):

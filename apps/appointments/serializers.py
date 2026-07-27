@@ -37,7 +37,11 @@ class AvailabilitySerializer(serializers.ModelSerializer):
 class AppointmentSerializer(serializers.ModelSerializer):
     professional_detail = ProfessionalProfileSerializer(source='professional', read_only=True)
     patient_detail = PatientProfileSerializer(source='patient', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # status_display mostra "Dia Ultrapassado" quando a consulta segue em aberto
+    # e o dia dela já passou. O `status` gravado continua sendo 'scheduled'/
+    # 'rescheduled' — o estado é só de exibição (ver Appointment.is_overdue).
+    status_display = serializers.SerializerMethodField()
+    is_overdue = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
 
     # required=False permite que pacientes não enviem 'patient' no body —
@@ -60,6 +64,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient', 'professional', 'clinic',
             'scheduled_at', 'duration_minutes', 'status', 'status_display',
+            'is_overdue',
             'cancel_reason', 'can_cancel', 'completed_at', 'ignore_availability',
             'professional_detail', 'patient_detail',
             'created_at', 'updated_at',
@@ -67,6 +72,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
         # 'patient' removido de read_only_fields para que admin/profissional
         # possam passar o UUID no body. perform_create injeta o valor para pacientes.
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_status_display(self, obj):
+        if obj.is_overdue:
+            return Appointment.OVERDUE_LABEL
+        return obj.get_status_display()
 
     def validate_scheduled_at(self, value):
         if value <= timezone.now():

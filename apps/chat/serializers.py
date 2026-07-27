@@ -6,10 +6,16 @@ from .models import ChatMessage
 from apps.accounts.models import User
 from apps.accounts.serializers import UserSerializer
 from apps.appointments.models import Appointment
+from apps.uploads import DOCUMENT_EXTENSIONS, validate_signature
 
 MAX_CHAT_ATTACHMENT_SIZE = 20 * 1024 * 1024
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".webm"}
+# Documentos aceitos no chat — os mesmos permitidos no modulo de documentos
+# (apps/records), para o usuario nao precisar sair do chat para mandar um
+# exame/laudo. As imagens da lista acima cobrem a parte visual, entao aqui
+# ficam so os formatos de texto/documento.
+CHAT_DOCUMENT_EXTENSIONS = DOCUMENT_EXTENSIONS - IMAGE_EXTENSIONS
 
 
 def user_initials(user):
@@ -90,6 +96,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     media_url = serializers.CharField(read_only=True)
+    media_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = ChatMessage
@@ -102,12 +109,16 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "message_type",
             "attachment",
             "media_url",
+            "media_name",
+            "media_duration_ms",
             "read",
             "sent_at",
             "sender_detail",
             "receiver_detail",
         ]
-        read_only_fields = ["id", "sent_at", "sender", "read", "media_url"]
+        read_only_fields = [
+            "id", "sent_at", "sender", "read", "media_url", "media_name",
+        ]
 
     def validate(self, data):
         request = self.context["request"]
@@ -141,6 +152,8 @@ class ChatMessageSerializer(serializers.ModelSerializer):
                 attachment,
                 message_type,
             )
+            # Nome original do arquivo — o storage renomeia o arquivo salvo.
+            data["media_name"] = Path(attachment.name).name[:255]
         elif message_type != ChatMessage.MessageType.TEXT:
             raise serializers.ValidationError(
                 "Anexo obrigatorio para mensagens de imagem, audio ou arquivo."
@@ -157,16 +170,26 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("O anexo deve ter no maximo 20MB.")
 
         extension = Path(attachment.name).suffix.lower()
-        allowed_extensions = IMAGE_EXTENSIONS | AUDIO_EXTENSIONS
+        allowed_extensions = (
+            IMAGE_EXTENSIONS | AUDIO_EXTENSIONS | CHAT_DOCUMENT_EXTENSIONS
+        )
 
         if extension not in allowed_extensions:
-            raise serializers.ValidationError("Formato de anexo nao permitido.")
+            raise serializers.ValidationError(
+                "Formato de anexo nao permitido. Use imagem, audio, "
+                "PDF, DOC ou DOCX."
+            )
 
-        inferred_type = (
-            ChatMessage.MessageType.IMAGE
-            if extension in IMAGE_EXTENSIONS
-            else ChatMessage.MessageType.AUDIO
-        )
+        if extension in IMAGE_EXTENSIONS:
+            inferred_type = ChatMessage.MessageType.IMAGE
+        elif extension in AUDIO_EXTENSIONS:
+            inferred_type = ChatMessage.MessageType.AUDIO
+        else:
+            inferred_type = ChatMessage.MessageType.FILE
+
+        # Confere se o conteudo bate com a extensao (imagens e documentos;
+        # audio nao tem assinatura na tabela e passa direto).
+        validate_signature(attachment, extension)
 
         if message_type not in [ChatMessage.MessageType.TEXT, inferred_type]:
             raise serializers.ValidationError(

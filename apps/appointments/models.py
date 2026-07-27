@@ -88,6 +88,26 @@ class Appointment(models.Model):
     def ends_at(self):
         return self.scheduled_at + timedelta(minutes=self.duration_minutes)
 
+    # Rótulo do estado derivado "dia ultrapassado" (ver is_overdue).
+    OVERDUE_LABEL = 'Dia Ultrapassado'
+
+    @property
+    def is_overdue(self):
+        """
+        Consulta cujo DIA já passou e que continua em aberto (agendada/remarcada).
+
+        É um estado DERIVADO — nunca gravado em `status` e sem nenhuma ação de
+        usuário que o force. A comparação é por DIA (data local), não por
+        horário: não aparece antes do dia da consulta nem durante o dia dela,
+        só a partir do dia seguinte. Consultas já resolvidas (realizada,
+        cancelada, não compareceu) nunca ficam ultrapassadas.
+        """
+        if self.status not in (self.Status.SCHEDULED, self.Status.RESCHEDULED):
+            return False
+        if not self.scheduled_at:
+            return False
+        return timezone.localdate(self.scheduled_at) < timezone.localdate()
+
 
 class SessionNote(models.Model):
     """

@@ -34,10 +34,24 @@ class UserSerializer(serializers.ModelSerializer):
 class PatientProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 
+    # Campos clinicos: histórico médico e anamnese são de responsabilidade do
+    # profissional. O proprio paciente nao deve visualizar nem editar. Removemos
+    # esses campos do serializer quando quem acessa e o paciente dono do perfil;
+    # profissional e admin continuam com acesso normal.
+    CLINICAL_FIELDS = ('medical_history', 'anamnesis')
+
     class Meta:
         model = PatientProfile
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and getattr(user, 'is_patient', False):
+            for field_name in self.CLINICAL_FIELDS:
+                self.fields.pop(field_name, None)
 
 
 class ProfessionalProfileSerializer(serializers.ModelSerializer):

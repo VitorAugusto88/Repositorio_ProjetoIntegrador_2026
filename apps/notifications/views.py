@@ -21,6 +21,14 @@ class NotificationListView(generics.ListAPIView):
             channel=Notification.Channel.IN_APP,
         )
 
+    def delete(self, request, *args, **kwargs):
+        """
+        DELETE /api/notifications/
+        Apaga todas as notificacoes in-app do usuario logado.
+        """
+        deleted, _ = self.get_queryset().delete()
+        return Response({'deleted': deleted}, status=status.HTTP_200_OK)
+
 
 class UnreadNotificationCountView(APIView):
     """

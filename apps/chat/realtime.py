@@ -17,6 +17,8 @@ def serialize_message_for_event(message):
         'content_encrypted': message.content_encrypted,
         'message_type': message.message_type,
         'media_url': message.media_url,
+        'media_name': message.media_name,
+        'media_duration_ms': message.media_duration_ms,
         'read': message.read,
         'sent_at': message.sent_at.isoformat(),
     }

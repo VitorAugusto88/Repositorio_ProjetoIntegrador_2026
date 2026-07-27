@@ -55,9 +55,34 @@ class ChatMessage(models.Model):
         blank=True,
         help_text='URL do arquivo de midia no storage'
     )
+    media_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=(
+            'Nome original do arquivo enviado. Guardado porque o storage '
+            'renomeia o arquivo (sufixo anticolisao), e o chat precisa exibir '
+            'o nome real nos anexos de documento (PDF/DOC/DOCX).'
+        ),
+    )
+    media_duration_ms = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            'Duracao real do audio em ms, medida na gravacao. Persistida porque '
+            'o webm do MediaRecorder (web) nao carrega duracao nos metadados e '
+            'o navegador a reporta errada.'
+        ),
+    )
 
     read = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
+
+    # Exclusao "so para mim": cada lado pode ocultar a mensagem sem afetar o
+    # outro. Quando os dois lados ocultam, a linha e removida de vez (limpeza).
+    # A exclusao "para todos" (so pelo remetente, enquanto nao lida) apaga a
+    # linha diretamente.
+    deleted_for_sender = models.BooleanField(default=False)
+    deleted_for_receiver = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Mensagem'
