@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import Appointment, Availability, SessionNote
 from apps.accounts.serializers import ProfessionalProfileSerializer, PatientProfileSerializer
-from apps.accounts.models import PatientProfile
+from apps.accounts.models import PatientProfile, ProfessionalProfile
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):
@@ -49,6 +49,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
     # Admin e profissional devem enviar o UUID explicitamente.
     patient = serializers.PrimaryKeyRelatedField(
         queryset=PatientProfile.objects.all(),
+        required=False,
+    )
+
+    # Mesmo motivo do 'patient' acima: o paciente nao envia 'professional' — a
+    # consulta e sempre com o psicologo vinculado ao perfil dele, preenchido em
+    # _enforce_assigned_professional. O profissional tambem nao envia (a view
+    # injeta o proprio perfil no perform_create). Para admin e superuser o campo
+    # segue obrigatorio, cobrado em validate().
+    professional = serializers.PrimaryKeyRelatedField(
+        queryset=ProfessionalProfile.objects.all(),
         required=False,
     )
 
@@ -195,6 +205,22 @@ class AppointmentSerializer(serializers.ModelSerializer):
             if clinic is None and not user.is_superuser:
                 clinic = user.clinic
 
+        professional = self._enforce_assigned_professional(
+            user=user,
+            patient=patient,
+            professional=professional,
+            data=data,
+        )
+
+        # O campo deixou de ser obrigatorio no nivel do DRF para que paciente e
+        # profissional possam omiti-lo (cada um tem o seu resolvido acima). Quem
+        # nao se encaixa nesses dois casos — admin e superuser — precisa
+        # informar, senao o save() estouraria IntegrityError.
+        if self.instance is None and professional is None:
+            raise serializers.ValidationError(
+                {'professional': 'Informe o psicologo da consulta.'}
+            )
+
         self._validate_same_clinic(patient, professional, clinic)
         self._validate_user_scope(user, patient, professional, clinic)
 
@@ -325,6 +351,50 @@ class AppointmentSerializer(serializers.ModelSerializer):
             return True
 
         return data.get('status') == Appointment.Status.RESCHEDULED
+
+    def _enforce_assigned_professional(self, user, patient, professional, data):
+        """
+        Trava o paciente no psicologo responsavel pelo seu perfil.
+
+        O paciente nao escolhe com quem se consulta — o vinculo e definido pelo
+        administrador no cadastro (PatientProfile.assigned_professional) e so
+        ele pode altera-lo. Esconder o seletor no aplicativo nao basta: sem esta
+        checagem um POST direto na API continuaria agendando com qualquer
+        profissional da clinica.
+
+        Staff (admin, profissional e superuser) NAO passa por aqui — precisa
+        poder marcar com um substituto quando o titular esta de ferias. E o
+        mesmo criterio de staff aplicado em ignore_availability.
+        """
+        is_patient_request = bool(
+            user
+            and user.is_authenticated
+            and user.is_patient
+            and not user.is_superuser
+        )
+        if not is_patient_request or patient is None:
+            return professional
+
+        assigned = patient.assigned_professional
+
+        # Alteracao de consulta existente: o paciente pode remarcar horario, mas
+        # nao trocar o profissional. A consulta pode ter sido criada pela
+        # secretaria com um substituto, entao comparamos com o que ja esta
+        # gravado — e nao com o vinculo — para nao travar essa remarcacao.
+        if self.instance is not None:
+            if 'professional' in data and data['professional'] != self.instance.professional:
+                raise serializers.ValidationError(
+                    {'professional': 'Voce nao pode trocar o psicologo da consulta. Solicite ao administrador da clinica.'}
+                )
+            return professional
+
+        if professional is not None and professional.id != assigned.id:
+            raise serializers.ValidationError(
+                {'professional': 'Voce so pode agendar com o seu psicologo responsavel. Para trocar, solicite ao administrador da clinica.'}
+            )
+
+        data['professional'] = assigned
+        return assigned
 
     def _validate_duration(self, duration_minutes):
         if duration_minutes <= 0:

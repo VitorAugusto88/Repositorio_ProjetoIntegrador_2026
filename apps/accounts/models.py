@@ -110,6 +110,19 @@ class PatientProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='patient_profile')
 
+    # Psicólogo responsável pelo paciente. O vínculo é definido pelo
+    # administrador no cadastro e só ele pode alterá-lo — o paciente não
+    # escolhe com quem se consulta, apenas agenda com o profissional vinculado
+    # (ver AppointmentSerializer._enforce_assigned_professional).
+    # PROTECT: um psicólogo com pacientes não pode ser excluído sem que o
+    # administrador remaneje esses pacientes antes.
+    assigned_professional = models.ForeignKey(
+        'accounts.ProfessionalProfile',
+        on_delete=models.PROTECT,
+        related_name='assigned_patients',
+        verbose_name='Psicólogo responsável',
+    )
+
     birth_date = models.DateField(null=True, blank=True)
     cpf = models.CharField(max_length=14, unique=True, null=True, blank=True)
     medical_history = models.TextField(blank=True, help_text='Histórico médico básico')

@@ -31,8 +31,23 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'role', 'clinic', 'is_active', 'created_at']
 
 
+class ProfessionalProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ProfessionalProfile
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
 class PatientProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    # Dados completos do psicologo responsavel (nome, CRP, foto, bio), para o
+    # frontend montar a tela "Meu psicologo" sem uma segunda requisicao.
+    assigned_professional_detail = ProfessionalProfileSerializer(
+        source='assigned_professional',
+        read_only=True,
+    )
 
     # Campos clinicos: histórico médico e anamnese são de responsabilidade do
     # profissional. O proprio paciente nao deve visualizar nem editar. Removemos
@@ -52,15 +67,13 @@ class PatientProfileSerializer(serializers.ModelSerializer):
         if user is not None and getattr(user, 'is_patient', False):
             for field_name in self.CLINICAL_FIELDS:
                 self.fields.pop(field_name, None)
-
-
-class ProfessionalProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-
-    class Meta:
-        model = ProfessionalProfile
-        fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at']
+            # O paciente PRECISA ver com quem se consulta, mas nao escolhe: a
+            # troca de psicologo e feita pelo administrador. Diferente dos
+            # campos clinicos acima, o campo permanece visivel — so vira
+            # somente-leitura, para que um PATCH do paciente nao o altere.
+            assigned = self.fields.get('assigned_professional')
+            if assigned is not None:
+                assigned.read_only = True
 
 
 class PatientListSerializer(serializers.ModelSerializer):
@@ -69,10 +82,17 @@ class PatientListSerializer(serializers.ModelSerializer):
     O campo 'id' e o PatientProfile.id — usado no POST /api/appointments/ como 'patient'.
     """
     user = UserSerializer(read_only=True)
+    assigned_professional_detail = ProfessionalProfileSerializer(
+        source='assigned_professional',
+        read_only=True,
+    )
 
     class Meta:
         model = PatientProfile
-        fields = ['id', 'user', 'birth_date', 'cpf', 'created_at']
+        fields = [
+            'id', 'user', 'birth_date', 'cpf', 'created_at',
+            'assigned_professional', 'assigned_professional_detail',
+        ]
         read_only_fields = fields
 
 
@@ -121,6 +141,14 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         allow_blank=True,
         write_only=True,
     )
+    # Psicologo responsavel — obrigatorio ao criar paciente (ver validate()).
+    # Fica em required=False aqui porque o mesmo serializer tambem cria
+    # profissionais, para os quais o campo nao se aplica.
+    assigned_professional = serializers.PrimaryKeyRelatedField(
+        queryset=ProfessionalProfile.objects.all(),
+        required=False,
+        write_only=True,
+    )
     send_invite = serializers.BooleanField(default=True, write_only=True)
 
     class Meta:
@@ -130,6 +158,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
             'crp', 'specialty', 'bio', 'session_duration_minutes', 'photo',
             'birth_date', 'cpf', 'medical_history', 'anamnesis',
             'emergency_contact_name', 'emergency_contact_phone',
+            'assigned_professional',
             'send_invite',
         ]
         read_only_fields = ['id']
@@ -156,7 +185,29 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         if role == User.Role.PROFESSIONAL and not attrs.get('crp'):
             raise serializers.ValidationError({'crp': 'CRP e obrigatorio.'})
 
+        if role == User.Role.PATIENT:
+            self._validate_assigned_professional(attrs)
+
         return attrs
+
+    def _validate_assigned_professional(self, attrs):
+        """
+        Todo paciente nasce vinculado a um psicologo — quem escolhe e o
+        administrador, no cadastro. O psicologo precisa ser da mesma clinica do
+        paciente, senao o vinculo furaria o isolamento entre clinicas.
+        """
+        assigned = attrs.get('assigned_professional')
+
+        if assigned is None:
+            raise serializers.ValidationError(
+                {'assigned_professional': 'Selecione o psicologo responsavel pelo paciente.'}
+            )
+
+        clinic = attrs.get('clinic')
+        if clinic and assigned.user.clinic_id != clinic.id:
+            raise serializers.ValidationError(
+                {'assigned_professional': 'O psicologo deve pertencer a mesma clinica do paciente.'}
+            )
 
     def create(self, validated_data):
         send_invite = validated_data.pop('send_invite', True)
@@ -176,6 +227,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         patient_fields = [
             'birth_date', 'cpf', 'medical_history', 'anamnesis',
             'emergency_contact_name', 'emergency_contact_phone',
+            'assigned_professional',
         ]
         professional_fields = [
             'crp', 'specialty', 'bio', 'session_duration_minutes', 'photo',
@@ -216,10 +268,18 @@ class AdminUserRoleSerializer(serializers.ModelSerializer):
     specialty = serializers.CharField(required=False, allow_blank=True, write_only=True)
     bio = serializers.CharField(required=False, allow_blank=True, write_only=True)
     session_duration_minutes = serializers.IntegerField(required=False, write_only=True)
+    assigned_professional = serializers.PrimaryKeyRelatedField(
+        queryset=ProfessionalProfile.objects.all(),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = User
-        fields = ['role', 'crp', 'specialty', 'bio', 'session_duration_minutes']
+        fields = [
+            'role', 'crp', 'specialty', 'bio', 'session_duration_minutes',
+            'assigned_professional',
+        ]
 
     def validate_role(self, value):
         if value not in [User.Role.PATIENT, User.Role.PROFESSIONAL, User.Role.ADMIN]:
@@ -239,15 +299,48 @@ class AdminUserRoleSerializer(serializers.ModelSerializer):
                 {'crp': 'CRP e obrigatorio para criar o perfil profissional.'}
             )
 
+        # Virar paciente cria o PatientProfile, que exige o psicologo
+        # responsavel. Sem essa checagem o get_or_create estouraria
+        # IntegrityError e a API responderia 500 em vez de um erro de validacao.
+        # Quem ja tem perfil mantem o vinculo atual, entao nada e exigido.
+        if (
+            role == User.Role.PATIENT
+            and not hasattr(instance, 'patient_profile')
+            and not attrs.get('assigned_professional')
+        ):
+            raise serializers.ValidationError(
+                {'assigned_professional': 'Informe o psicologo responsavel para criar o perfil de paciente.'}
+            )
+
+        assigned = attrs.get('assigned_professional')
+        if assigned and instance.clinic_id and assigned.user.clinic_id != instance.clinic_id:
+            raise serializers.ValidationError(
+                {'assigned_professional': 'O psicologo deve pertencer a mesma clinica do paciente.'}
+            )
+
         return attrs
 
+    PROFESSIONAL_PROFILE_FIELDS = ['crp', 'specialty', 'bio', 'session_duration_minutes']
+    PATIENT_PROFILE_FIELDS = ['assigned_professional']
+
     def update(self, instance, validated_data):
-        profile_data = {
+        # Retira do payload todos os campos de perfil, mas repassa ao
+        # ensure_role_profile apenas os do papel de destino: os defaults viram
+        # kwargs do modelo, e um campo do perfil errado (um crp indo parar em
+        # PatientProfile) estouraria TypeError.
+        submitted = {
             field: validated_data.pop(field)
-            for field in ['crp', 'specialty', 'bio', 'session_duration_minutes']
+            for field in self.PROFESSIONAL_PROFILE_FIELDS + self.PATIENT_PROFILE_FIELDS
             if field in validated_data
         }
         instance = super().update(instance, validated_data)
+
+        allowed = (
+            self.PATIENT_PROFILE_FIELDS if instance.is_patient
+            else self.PROFESSIONAL_PROFILE_FIELDS
+        )
+        profile_data = {k: v for k, v in submitted.items() if k in allowed}
+
         ensure_role_profile(instance, profile_data)
         return instance
 

@@ -127,8 +127,11 @@ class ReminderDedupTests(TestCase):
         self.clinic = _clinic()
         patient_user = _user(self.clinic, User.Role.PATIENT, 'pac@t.com')
         prof_user = _user(self.clinic, User.Role.PROFESSIONAL, 'prof@t.com')
-        self.patient = PatientProfile.objects.create(user=patient_user)
         self.professional = ProfessionalProfile.objects.create(user=prof_user, crp='123')
+        self.patient = PatientProfile.objects.create(
+            user=patient_user,
+            assigned_professional=self.professional,
+        )
         self.appt = Appointment.objects.create(
             patient=self.patient,
             professional=self.professional,

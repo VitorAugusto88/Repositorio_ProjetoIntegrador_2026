@@ -352,12 +352,46 @@ class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateDestroy
             raw = request.data.get('preserve_clinical_data')
         return str(raw).lower() in ('true', '1', 'yes')
 
+    def _assigned_patients_blocker(self, user):
+        """
+        Impede remover um psicologo que ainda e responsavel por pacientes.
+
+        Vale para os DOIS caminhos de exclusao. No caminho que apaga de vez, o
+        PROTECT do banco ja recusaria a operacao, mas com ProtectedError — um
+        500 sem explicacao; aqui devolvemos 400 com instrucao. Ja o caminho que
+        arquiva nem chega no PROTECT (o ProfessionalProfile continua existindo),
+        e sem esta checagem os pacientes ficariam presos a um profissional
+        inativo, sem conseguir agendar e sem nenhum aviso.
+
+        Retorna a mensagem de bloqueio, ou None quando a remocao e permitida.
+        """
+        profile = getattr(user, 'professional_profile', None)
+        if profile is None:
+            return None
+
+        total = profile.assigned_patients.count()
+        if not total:
+            return None
+
+        plural = 'paciente vinculado' if total == 1 else 'pacientes vinculados'
+        return (
+            f'Este psicologo ainda tem {total} {plural}. '
+            'Transfira esses pacientes para outro psicologo antes de remove-lo.'
+        )
+
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
 
         if user.id == request.user.id:
             return Response(
                 {'detail': 'Voce nao pode excluir a propria conta.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        blocker = self._assigned_patients_blocker(user)
+        if blocker:
+            return Response(
+                {'detail': blocker},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
