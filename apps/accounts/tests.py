@@ -246,3 +246,147 @@ class AssignedProfessionalAccountTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(User.objects.filter(id=self.psicologo.user_id).exists())
+
+
+class ClinicPatientListTests(APITestCase):
+    """
+    GET /api/auth/<clinic_id>/patients/ — a lista que alimenta o card
+    "Pacientes" do psicologo. Ele precisa enxergar quem esta sob a sua
+    responsabilidade mesmo antes da primeira consulta ser marcada.
+    """
+
+    def setUp(self):
+        self.clinic = Clinic.objects.create(name='Clinica Lista')
+        self.psicologo = self._professional('psi.lista@example.com', 'CRP-L1')
+        self.outro_psicologo = self._professional('psi2.lista@example.com', 'CRP-L2')
+        self.url = reverse('clinic-patient-list', args=[self.clinic.id])
+
+    def _professional(self, email, crp):
+        user = User.objects.create_user(
+            email=email,
+            password='SenhaTeste123',
+            full_name=f'Psicologo {crp}',
+            role=User.Role.PROFESSIONAL,
+            clinic=self.clinic,
+        )
+        return ProfessionalProfile.objects.create(user=user, crp=crp)
+
+    def _paciente(self, email, professional, is_active=True):
+        user = User.objects.create_user(
+            email=email,
+            password='SenhaTeste123',
+            full_name=f'Paciente {email}',
+            role=User.Role.PATIENT,
+            clinic=self.clinic,
+            is_active=is_active,
+        )
+        return PatientProfile.objects.create(
+            user=user, assigned_professional=professional
+        )
+
+    def _ids(self, response):
+        return {item['id'] for item in response.data.get('results', response.data)}
+
+    def test_psicologo_ve_paciente_vinculado_sem_consulta(self):
+        """O bug: paciente atribuido, porem ainda sem consulta, sumia da lista."""
+        perfil = self._paciente('sem.consulta@example.com', self.psicologo)
+
+        self.client.force_authenticate(user=self.psicologo.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(str(perfil.id), self._ids(response))
+
+    def test_psicologo_nao_ve_paciente_de_outro_psicologo(self):
+        alheio = self._paciente('alheio@example.com', self.outro_psicologo)
+
+        self.client.force_authenticate(user=self.psicologo.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn(str(alheio.id), self._ids(response))
+
+    def test_paciente_inativo_fica_fora_da_lista(self):
+        inativo = self._paciente(
+            'inativo@example.com', self.psicologo, is_active=False
+        )
+
+        self.client.force_authenticate(user=self.psicologo.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn(str(inativo.id), self._ids(response))
+
+    def test_paciente_aparece_uma_unica_vez_com_varias_consultas(self):
+        """O OR com appointments nao pode duplicar linhas na lista."""
+        from django.utils import timezone
+        from datetime import timedelta
+
+        from apps.appointments.models import Appointment
+
+        perfil = self._paciente('com.consultas@example.com', self.psicologo)
+        for dias in (1, 2, 3):
+            Appointment.objects.create(
+                patient=perfil,
+                professional=self.psicologo,
+                clinic=self.clinic,
+                scheduled_at=timezone.now() + timedelta(days=dias),
+            )
+
+        self.client.force_authenticate(user=self.psicologo.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        encontrados = [
+            item for item in response.data.get('results', response.data)
+            if item['id'] == str(perfil.id)
+        ]
+        self.assertEqual(len(encontrados), 1)
+
+    def test_psicologo_ainda_ve_paciente_remanejado_com_quem_ja_atendeu(self):
+        """Historico nao pode sumir quando o admin troca o psicologo responsavel."""
+        from django.utils import timezone
+        from datetime import timedelta
+
+        from apps.appointments.models import Appointment
+
+        perfil = self._paciente('remanejado@example.com', self.outro_psicologo)
+        Appointment.objects.create(
+            patient=perfil,
+            professional=self.psicologo,
+            clinic=self.clinic,
+            scheduled_at=timezone.now() - timedelta(days=10),
+        )
+
+        self.client.force_authenticate(user=self.psicologo.user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(str(perfil.id), self._ids(response))
+
+    def test_lista_paginada_entrega_todos_os_pacientes_sem_repetir(self):
+        """
+        A resposta e paginada (PAGE_SIZE=20) e o frontend segue o campo `next`
+        ate o fim. Isso exige que as paginas nao se sobreponham nem percam
+        registros — o que so vale com a ordenacao explicita no queryset.
+        """
+        criados = {
+            str(self._paciente(f'p{i:02d}@example.com', self.psicologo).id)
+            for i in range(25)
+        }
+
+        self.client.force_authenticate(user=self.psicologo.user)
+
+        vistos = []
+        url = self.url
+        paginas = 0
+        while url and paginas < 10:
+            paginas += 1
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            vistos.extend(item['id'] for item in response.data['results'])
+            url = response.data['next']
+
+        self.assertEqual(paginas, 2)
+        self.assertEqual(len(vistos), 25, 'houve pagina repetida ou perdida')
+        self.assertEqual(set(vistos), criados)

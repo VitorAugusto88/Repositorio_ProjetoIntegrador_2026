@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -241,11 +242,14 @@ class ClinicPatientListView(generics.ListAPIView):
         clinic_id = str(self.kwargs['pk'])
         user = self.request.user
 
+        # A resposta e paginada (PAGE_SIZE=20). Sem ordenacao explicita o corte
+        # entre paginas fica a criterio do banco e pode variar a cada requisicao,
+        # fazendo pacientes sumirem/repetirem na lista.
         if user.is_superuser:
             return PatientProfile.objects.select_related('user').filter(
                 user__clinic_id=clinic_id,
                 user__is_active=True
-            )
+            ).order_by('user__full_name')
 
         if not user.clinic_id or str(user.clinic_id) != clinic_id:
             raise PermissionDenied('Voce nao pode acessar pacientes de outra clinica.')
@@ -254,14 +258,27 @@ class ClinicPatientListView(generics.ListAPIView):
             return PatientProfile.objects.select_related('user').filter(
                 user__clinic_id=user.clinic_id,
                 user__is_active=True
-            )
+            ).order_by('user__full_name')
 
         if user.is_professional:
+            professional_profile = getattr(user, 'professional_profile', None)
+            if professional_profile is None:
+                return PatientProfile.objects.none()
+
+            # O psicologo ve os pacientes sob sua responsabilidade (vinculo
+            # definido pelo administrador em assigned_professional) mesmo que
+            # ainda nao exista consulta marcada, alem daqueles com quem ja teve
+            # consulta na clinica — util quando o paciente foi remanejado para
+            # outro psicologo depois do atendimento.
             return PatientProfile.objects.select_related('user').filter(
+                Q(assigned_professional=professional_profile)
+                | Q(
+                    appointments__professional=professional_profile,
+                    appointments__clinic_id=user.clinic_id,
+                ),
                 user__clinic_id=user.clinic_id,
-                appointments__professional=user.professional_profile,
-                appointments__clinic_id=user.clinic_id
-            ).distinct()
+                user__is_active=True,
+            ).distinct().order_by('user__full_name')
 
         return PatientProfile.objects.none()
 
