@@ -1,4 +1,5 @@
-from rest_framework import generics, permissions
+from django.db.models import Q
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
@@ -7,6 +8,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 from apps.audit.models import AuditLog
 from apps.audit.services import (
@@ -30,6 +33,7 @@ from .serializers import (
     PatientListSerializer,
     PasswordResetRequestSerializer,
     PasswordSetConfirmSerializer,
+    ChangePasswordSerializer,
 )
 from .permissions import (
     IsAdminOnly,
@@ -115,14 +119,27 @@ class LogoutView(APIView):
         return Response({'detail': 'Logout realizado com sucesso.'})
 
 
-class RegisterView(APIView):
+class LogoutView(APIView):
     """
-    POST /api/auth/register/
-    Cadastro publico desativado.
+    POST /api/auth/logout/
+    Encerra a sessao colocando o refresh token na blacklist.
+    Exige o refresh token no corpo: {"refresh": "<token>"}.
     """
-    authentication_classes = []
-    permission_classes = []
-    http_method_names = ['options']
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get('refresh')
+        if not refresh:
+            return Response(
+                {'detail': 'O refresh token e obrigatorio para sair.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            RefreshToken(refresh).blacklist()
+        except TokenError:
+            # Token ja expirado/invalido: a sessao esta encerrada de qualquer forma.
+            pass
+        return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
 class MeView(APIView):
@@ -279,11 +296,14 @@ class ClinicPatientListView(generics.ListAPIView):
         clinic_id = str(self.kwargs['pk'])
         user = self.request.user
 
+        # A resposta e paginada (PAGE_SIZE=20). Sem ordenacao explicita o corte
+        # entre paginas fica a criterio do banco e pode variar a cada requisicao,
+        # fazendo pacientes sumirem/repetirem na lista.
         if user.is_superuser:
             return PatientProfile.objects.select_related('user').filter(
                 user__clinic_id=clinic_id,
                 user__is_active=True
-            )
+            ).order_by('user__full_name')
 
         if not user.clinic_id or str(user.clinic_id) != clinic_id:
             raise PermissionDenied('Voce nao pode acessar pacientes de outra clinica.')
@@ -292,14 +312,27 @@ class ClinicPatientListView(generics.ListAPIView):
             return PatientProfile.objects.select_related('user').filter(
                 user__clinic_id=user.clinic_id,
                 user__is_active=True
-            )
+            ).order_by('user__full_name')
 
         if user.is_professional:
+            professional_profile = getattr(user, 'professional_profile', None)
+            if professional_profile is None:
+                return PatientProfile.objects.none()
+
+            # O psicologo ve os pacientes sob sua responsabilidade (vinculo
+            # definido pelo administrador em assigned_professional) mesmo que
+            # ainda nao exista consulta marcada, alem daqueles com quem ja teve
+            # consulta na clinica — util quando o paciente foi remanejado para
+            # outro psicologo depois do atendimento.
             return PatientProfile.objects.select_related('user').filter(
+                Q(assigned_professional=professional_profile)
+                | Q(
+                    appointments__professional=professional_profile,
+                    appointments__clinic_id=user.clinic_id,
+                ),
                 user__clinic_id=user.clinic_id,
-                appointments__professional=user.professional_profile,
-                appointments__clinic_id=user.clinic_id
-            ).distinct()
+                user__is_active=True,
+            ).distinct().order_by('user__full_name')
 
         return PatientProfile.objects.none()
 
@@ -307,11 +340,13 @@ class ClinicPatientListView(generics.ListAPIView):
 class AdminUserQuerysetMixin:
     def get_queryset(self):
         user = self.request.user
+        # Contas arquivadas (excluídas com preservação de dados clínicos) somem
+        # das listas e não podem mais ser gerenciadas por aqui.
         queryset = User.objects.select_related(
             'clinic',
             'patient_profile',
             'professional_profile',
-        )
+        ).filter(is_archived=False)
 
         if user.is_superuser:
             clinic_id = self.request.query_params.get('clinic_id')
@@ -366,10 +401,13 @@ class AdminProfessionalCreateView(generics.CreateAPIView):
     permission_classes = [IsAdminOnly]
 
 
-class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateAPIView):
+class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateDestroyAPIView):
     """
-    GET/PATCH /api/auth/admin/users/<uuid>/
-    Edita dados basicos sem alterar role ou status.
+    GET/PATCH/DELETE /api/auth/admin/users/<uuid>/
+    - PATCH edita dados basicos sem alterar role ou status.
+    - DELETE exclui a conta. Com ?preserve_clinical_data=true a conta e apenas
+      arquivada/anonimizada (documentos e consultas ficam preservados); caso
+      contrario o usuario e apagado de vez, junto com todos os dados em cascata.
     """
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminOnly]
@@ -378,6 +416,65 @@ class AdminUserDetailView(AdminUserQuerysetMixin, generics.RetrieveUpdateAPIView
         if self.request.method in ['PUT', 'PATCH']:
             return AdminUserUpdateSerializer
         return AdminUserSerializer
+
+    def _wants_preserve(self, request):
+        raw = request.query_params.get('preserve_clinical_data')
+        if raw is None and isinstance(request.data, dict):
+            raw = request.data.get('preserve_clinical_data')
+        return str(raw).lower() in ('true', '1', 'yes')
+
+    def _assigned_patients_blocker(self, user):
+        """
+        Impede remover um psicologo que ainda e responsavel por pacientes.
+
+        Vale para os DOIS caminhos de exclusao. No caminho que apaga de vez, o
+        PROTECT do banco ja recusaria a operacao, mas com ProtectedError — um
+        500 sem explicacao; aqui devolvemos 400 com instrucao. Ja o caminho que
+        arquiva nem chega no PROTECT (o ProfessionalProfile continua existindo),
+        e sem esta checagem os pacientes ficariam presos a um profissional
+        inativo, sem conseguir agendar e sem nenhum aviso.
+
+        Retorna a mensagem de bloqueio, ou None quando a remocao e permitida.
+        """
+        profile = getattr(user, 'professional_profile', None)
+        if profile is None:
+            return None
+
+        total = profile.assigned_patients.count()
+        if not total:
+            return None
+
+        plural = 'paciente vinculado' if total == 1 else 'pacientes vinculados'
+        return (
+            f'Este psicologo ainda tem {total} {plural}. '
+            'Transfira esses pacientes para outro psicologo antes de remove-lo.'
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+
+        if user.id == request.user.id:
+            return Response(
+                {'detail': 'Voce nao pode excluir a propria conta.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        blocker = self._assigned_patients_blocker(user)
+        if blocker:
+            return Response(
+                {'detail': blocker},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if self._wants_preserve(request):
+            # Excluir preservando dados clinicos: anonimiza e arquiva.
+            user.archive()
+        else:
+            # Excluir tudo: apaga o usuario e, em cascata, perfil, documentos,
+            # consultas e mensagens.
+            user.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_update(self, serializer):
         before = model_field_snapshot(
@@ -488,3 +585,18 @@ class PasswordInviteConfirmView(PasswordResetConfirmView):
     POST /api/auth/password/invite/confirm/
     Define a senha inicial usando uid e token do convite.
     """
+
+
+class ChangePasswordView(generics.GenericAPIView):
+    """
+    POST /api/auth/password/change/
+    Troca a senha do usuario autenticado (senha atual + nova). Sem e-mail.
+    """
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Senha atualizada com sucesso.'})

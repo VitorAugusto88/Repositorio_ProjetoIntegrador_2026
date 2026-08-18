@@ -21,41 +21,41 @@ STATUS_COLUMNS = [
     ('total', 'Total'),
 ]
 MONTH_COLUMNS = [
-    ('month', 'Mes'),
+    ('month', 'Mês'),
     ('total', 'Total'),
     (Appointment.Status.SCHEDULED, 'Agendadas'),
     (Appointment.Status.COMPLETED, 'Realizadas'),
     (Appointment.Status.CANCELLED, 'Canceladas'),
     (Appointment.Status.RESCHEDULED, 'Remarcadas'),
-    (Appointment.Status.NO_SHOW, 'No show'),
+    (Appointment.Status.NO_SHOW, 'Faltas'),
 ]
 APPOINTMENT_COLUMNS = [
     ('scheduled_at', 'Data'),
     ('patient_name', 'Paciente'),
     ('professional_name', 'Profissional'),
-    ('duration_minutes', 'Duracao'),
+    ('duration_minutes', 'Duração (min)'),
     ('status_label', 'Status'),
-    ('cancel_reason', 'Motivo cancelamento'),
+    ('cancel_reason', 'Motivo do cancelamento'),
 ]
 PATIENT_COLUMNS = [
     ('patient_name', 'Paciente'),
-    ('patient_email', 'Email'),
+    ('patient_email', 'E-mail'),
     ('total_appointments', 'Consultas'),
     ('completed', 'Realizadas'),
     ('cancelled', 'Canceladas'),
-    ('no_show', 'No show'),
-    ('last_appointment_at', 'Ultima consulta'),
+    ('no_show', 'Faltas'),
+    ('last_appointment_at', 'Última consulta'),
 ]
 PROFESSIONAL_COLUMNS = [
     ('professional_name', 'Profissional'),
-    ('professional_email', 'Email'),
+    ('professional_email', 'E-mail'),
     ('unique_patients', 'Pacientes'),
     ('total_appointments', 'Consultas'),
     ('scheduled', 'Agendadas'),
     ('completed', 'Realizadas'),
     ('cancelled', 'Canceladas'),
     ('rescheduled', 'Remarcadas'),
-    ('no_show', 'No show'),
+    ('no_show', 'Faltas'),
 ]
 
 
@@ -87,7 +87,7 @@ class PatientReportPDFView(APIView):
             parse_report_period(request.query_params),
         )
         return build_pdf_response(
-            'Relatorio do paciente',
+            'Relatório do paciente',
             report_filename('relatorio-paciente', 'pdf'),
             report['summary'],
             patient_sections(report),
@@ -122,7 +122,7 @@ class ProfessionalSummaryPDFView(APIView):
             parse_report_period(request.query_params),
         )
         return build_pdf_response(
-            'Relatorio do profissional',
+            'Relatório do profissional',
             report_filename('relatorio-profissional', 'pdf'),
             report['summary'],
             professional_summary_sections(report),
@@ -178,7 +178,7 @@ class ProfessionalPatientPDFView(APIView):
             parse_report_period(request.query_params),
         )
         return build_pdf_response(
-            'Relatorio individual do paciente',
+            'Relatório individual do paciente',
             report_filename('relatorio-profissional-paciente', 'pdf'),
             report['summary'],
             patient_sections(report),
@@ -233,7 +233,7 @@ class AdminAppointmentsPDFView(APIView):
             request.query_params,
         )
         return build_pdf_response(
-            'Relatorio administrativo de consultas',
+            'Relatório administrativo de consultas',
             report_filename('relatorio-admin-consultas', 'pdf'),
             report['summary'],
             admin_sections(report),
@@ -267,12 +267,12 @@ def patient_sections(report):
             'columns': STATUS_COLUMNS,
         },
         {
-            'title': 'Frequencia mensal',
+            'title': 'Frequência mensal',
             'rows': report['frequency_by_month'],
             'columns': MONTH_COLUMNS,
         },
         {
-            'title': 'Historico de consultas',
+            'title': 'Histórico de consultas',
             'rows': report['appointment_history'],
             'columns': APPOINTMENT_COLUMNS,
         },
@@ -312,7 +312,7 @@ def admin_sections(report):
             'columns': STATUS_COLUMNS,
         },
         {
-            'title': 'Consultas por periodo',
+            'title': 'Consultas por período',
             'rows': report['consultations_by_period'],
             'columns': MONTH_COLUMNS,
         },

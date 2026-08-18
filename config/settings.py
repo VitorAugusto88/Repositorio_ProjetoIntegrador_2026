@@ -20,10 +20,7 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 # Producao: defina somente hosts reais da API, por exemplo:
 # ALLOWED_HOSTS=api.sua-clinica.com
-ALLOWED_HOSTS = csv_config(
-    "ALLOWED_HOSTS",
-    default="127.0.0.1,localhost,192.168.100.131",
-)
+ALLOWED_HOSTS = csv_config("ALLOWED_HOSTS", default="localhost,127.0.0.1")
 USE_S3_STORAGE = config("USE_S3_STORAGE", default=False, cast=bool)
 
 DJANGO_APPS = [
@@ -43,6 +40,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "channels",
     "drf_spectacular",
+    "anymail",
 ]
 
 if USE_S3_STORAGE:
@@ -63,6 +61,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -139,6 +138,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_RATES": {
         "login": config("LOGIN_THROTTLE_RATE", default="5/min"),
         "password_reset": config("PASSWORD_RESET_THROTTLE_RATE", default="3/hour"),
@@ -152,10 +152,10 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=config("JWT_ACCESS_TOKEN_MINUTES", default=15, cast=int)
+        minutes=config("JWT_ACCESS_TOKEN_MINUTES", default=60, cast=int)
     ),
     "REFRESH_TOKEN_LIFETIME": timedelta(
-        hours=config("JWT_REFRESH_TOKEN_HOURS", default=12, cast=int)
+        days=config("JWT_REFRESH_TOKEN_DAYS", default=7, cast=int)
     ),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -170,14 +170,8 @@ SIMPLE_JWT = {
 # CSRF_TRUSTED_ORIGINS=https://app.sua-clinica.com
 CORS_ALLOWED_ORIGINS = csv_config(
     "CORS_ALLOWED_ORIGINS",
-    default=(
-        "http://localhost:3000,"
-        "http://localhost:8081,"
-        "http://127.0.0.1:3000,"
-        "http://127.0.0.1:8081"
-    ),
+    default="http://localhost:3000",
 )
-CORS_ALLOWED_ORIGIN_REGEXES = csv_config("CORS_ALLOWED_ORIGIN_REGEXES", default="")
 CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", default=False, cast=bool)
 CSRF_TRUSTED_ORIGINS = csv_config("CSRF_TRUSTED_ORIGINS", default="")
 
@@ -199,12 +193,24 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@clinicsystem
 EMAIL_BACKEND = config(
     "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
 )
-EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
-EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
-EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_HOST = config("EMAIL_HOST", default="localhost")
+EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=10, cast=int)
 PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT_SECONDS", default=900, cast=int)
+
+# Anymail — envio de e-mail via API HTTP (porta 443). Necessario em produção no
+# Render, que bloqueia as portas de SMTP (25/465/587) e faz o envio via Gmail
+# falhar com "Network is unreachable". Para ativar o Brevo, defina no ambiente:
+#   EMAIL_BACKEND=anymail.backends.brevo.EmailBackend
+#   BREVO_API_KEY=<sua-chave-da-api-brevo>
+# O DEFAULT_FROM_EMAIL precisa ser um remetente verificado no Brevo.
+ANYMAIL = {
+    "BREVO_API_KEY": config("BREVO_API_KEY", default=""),
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -214,23 +220,20 @@ AUTH_PASSWORD_VALIDATORS = [
         ),
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation.MinimumLengthValidator"
-        ),
+        "NAME": ("django.contrib.auth.password_validation.MinimumLengthValidator"),
         "OPTIONS": {"min_length": config("PASSWORD_MIN_LENGTH", default=10, cast=int)},
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation.CommonPasswordValidator"
-        ),
+        "NAME": ("django.contrib.auth.password_validation.CommonPasswordValidator"),
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation.NumericPasswordValidator"
-        ),
+        "NAME": ("django.contrib.auth.password_validation.NumericPasswordValidator"),
     },
 ]
 
+# Upstash (nuvem): use a connection string TLS (rediss://...). O channels_redis
+# aceita rediss:// direto. Para um worker Celery com Upstash, o broker exige
+# ssl_cert_reqs na URL — ver CELERY_BROKER_URL no .env.example.
 REDIS_URL = config("REDIS_URL", default="redis://127.0.0.1:6379/0")
 CHANNEL_LAYERS = {
     "default": {
@@ -256,6 +259,13 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 FIREBASE_PUSH_ENABLED = config("FIREBASE_PUSH_ENABLED", default=False, cast=bool)
+
+# Push habilitado (Expo Push Service). PUSH_ENABLED e o nome atual; mantem
+# compatibilidade com o antigo FIREBASE_PUSH_ENABLED como default.
+PUSH_ENABLED = config("PUSH_ENABLED", default=FIREBASE_PUSH_ENABLED, cast=bool)
+# Opcional: Access Token do Expo (expo.dev > Account > Access Tokens). Vazio =
+# envio anonimo (aceito pelo Expo). Recomendado em producao para reforcar seguranca.
+EXPO_ACCESS_TOKEN = config("EXPO_ACCESS_TOKEN", default="")
 
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=not DEBUG, cast=bool)
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=not DEBUG, cast=bool)
@@ -288,10 +298,13 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
+# Cloudflare R2 (S3-compatível): defina USE_S3_STORAGE=True, AWS_S3_REGION_NAME=auto,
+# AWS_S3_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com (upload) e
+# AWS_S3_CUSTOM_DOMAIN=pub-xxxx.r2.dev (leitura pública) com AWS_QUERYSTRING_AUTH=False.
 if USE_S3_STORAGE:
     AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default=None)
     AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default=None)
@@ -329,7 +342,9 @@ if USE_S3_STORAGE:
     elif AWS_S3_ENDPOINT_URL:
         MEDIA_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/{AWS_MEDIA_LOCATION}/"
     else:
-        MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{AWS_MEDIA_LOCATION}/"
+        MEDIA_URL = (
+            f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{AWS_MEDIA_LOCATION}/"
+        )
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

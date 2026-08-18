@@ -1,7 +1,6 @@
 import uuid
 from datetime import timedelta
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -80,6 +79,9 @@ class Appointment(models.Model):
     duration_minutes = models.PositiveIntegerField(default=50)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
     cancel_reason = models.TextField(blank=True)
+    # Data/hora em que a consulta foi de fato realizada. Preenchido ao concluir —
+    # permite concluir uma consulta adiantada sem manter a data agendada no futuro.
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -99,6 +101,26 @@ class Appointment(models.Model):
     @property
     def ends_at(self):
         return self.scheduled_at + timedelta(minutes=self.duration_minutes)
+
+    # Rótulo do estado derivado "dia ultrapassado" (ver is_overdue).
+    OVERDUE_LABEL = 'Dia Ultrapassado'
+
+    @property
+    def is_overdue(self):
+        """
+        Consulta cujo DIA já passou e que continua em aberto (agendada/remarcada).
+
+        É um estado DERIVADO — nunca gravado em `status` e sem nenhuma ação de
+        usuário que o force. A comparação é por DIA (data local), não por
+        horário: não aparece antes do dia da consulta nem durante o dia dela,
+        só a partir do dia seguinte. Consultas já resolvidas (realizada,
+        cancelada, não compareceu) nunca ficam ultrapassadas.
+        """
+        if self.status not in (self.Status.SCHEDULED, self.Status.RESCHEDULED):
+            return False
+        if not self.scheduled_at:
+            return False
+        return timezone.localdate(self.scheduled_at) < timezone.localdate()
 
 
 class SessionNote(models.Model):
@@ -122,26 +144,3 @@ class SessionNote(models.Model):
 
     def __str__(self):
         return f'Nota — {self.appointment}'
-
-
-class Rating(models.Model):
-    """Avaliação anônima pós-consulta feita pelo paciente."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    appointment = models.OneToOneField(
-        Appointment,
-        on_delete=models.CASCADE,
-        related_name='rating'
-    )
-    score = models.PositiveSmallIntegerField(
-        help_text='1 a 5',
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-    )
-    comment = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Avaliação'
-
-    def __str__(self):
-        return f'Avaliação {self.score}/5 — {self.appointment}'

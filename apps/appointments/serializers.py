@@ -3,9 +3,9 @@ from datetime import timedelta
 
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Appointment, Availability, SessionNote, Rating
+from .models import Appointment, Availability, SessionNote
 from apps.accounts.serializers import ProfessionalProfileSerializer, PatientProfileSerializer
-from apps.accounts.models import PatientProfile
+from apps.accounts.models import PatientProfile, ProfessionalProfile
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):
@@ -37,9 +37,12 @@ class AvailabilitySerializer(serializers.ModelSerializer):
 class AppointmentSerializer(serializers.ModelSerializer):
     professional_detail = ProfessionalProfileSerializer(source='professional', read_only=True)
     patient_detail = PatientProfileSerializer(source='patient', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # status_display mostra "Dia Ultrapassado" quando a consulta segue em aberto
+    # e o dia dela já passou. O `status` gravado continua sendo 'scheduled'/
+    # 'rescheduled' — o estado é só de exibição (ver Appointment.is_overdue).
+    status_display = serializers.SerializerMethodField()
+    is_overdue = serializers.BooleanField(read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
-    has_review = serializers.SerializerMethodField()
 
     # required=False permite que pacientes não enviem 'patient' no body —
     # perform_create injeta user.patient_profile automaticamente para eles.
@@ -49,12 +52,30 @@ class AppointmentSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    # Mesmo motivo do 'patient' acima: o paciente nao envia 'professional' — a
+    # consulta e sempre com o psicologo vinculado ao perfil dele, preenchido em
+    # _enforce_assigned_professional. O profissional tambem nao envia (a view
+    # injeta o proprio perfil no perform_create). Para admin e superuser o campo
+    # segue obrigatorio, cobrado em validate().
+    professional = serializers.PrimaryKeyRelatedField(
+        queryset=ProfessionalProfile.objects.all(),
+        required=False,
+    )
+
+    # Flag opcional (não é campo do modelo) para, excepcionalmente, agendar
+    # ignorando a disponibilidade do profissional. Só é honrado para staff
+    # (admin/profissional). O conflito de horário continua sendo validado.
+    ignore_availability = serializers.BooleanField(
+        write_only=True, required=False, default=False
+    )
+
     class Meta:
         model = Appointment
         fields = [
             'id', 'patient', 'professional', 'clinic',
             'scheduled_at', 'duration_minutes', 'status', 'status_display',
-            'cancel_reason', 'can_cancel', 'has_review',
+            'is_overdue',
+            'cancel_reason', 'can_cancel', 'completed_at', 'ignore_availability',
             'professional_detail', 'patient_detail',
             'created_at', 'updated_at',
         ]
@@ -62,8 +83,10 @@ class AppointmentSerializer(serializers.ModelSerializer):
         # possam passar o UUID no body. perform_create injeta o valor para pacientes.
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def get_has_review(self, obj):
-        return hasattr(obj, 'rating')
+    def get_status_display(self, obj):
+        if obj.is_overdue:
+            return Appointment.OVERDUE_LABEL
+        return obj.get_status_display()
 
     def validate_scheduled_at(self, value):
         if value <= timezone.now():
@@ -149,6 +172,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
 
+        # "Ignorar disponibilidade": só honrado para staff (admin/profissional).
+        # Removido de data para não vazar para o save() (não é campo do modelo).
+        ignore_availability = data.pop('ignore_availability', False)
+        is_staff = bool(
+            user
+            and user.is_authenticated
+            and (user.is_superuser or user.is_admin or user.is_professional)
+        )
+        ignore_availability = ignore_availability and is_staff
+
         professional = data.get(
             'professional',
             getattr(self.instance, 'professional', None)
@@ -172,16 +205,40 @@ class AppointmentSerializer(serializers.ModelSerializer):
             if clinic is None and not user.is_superuser:
                 clinic = user.clinic
 
+        professional = self._enforce_assigned_professional(
+            user=user,
+            patient=patient,
+            professional=professional,
+            data=data,
+        )
+
+        # O campo deixou de ser obrigatorio no nivel do DRF para que paciente e
+        # profissional possam omiti-lo (cada um tem o seu resolvido acima). Quem
+        # nao se encaixa nesses dois casos — admin e superuser — precisa
+        # informar, senao o save() estouraria IntegrityError.
+        if self.instance is None and professional is None:
+            raise serializers.ValidationError(
+                {'professional': 'Informe o psicologo da consulta.'}
+            )
+
         self._validate_same_clinic(patient, professional, clinic)
         self._validate_user_scope(user, patient, professional, clinic)
 
+        # Validações de mudança de status e trava de consultas terminais —
+        # só se aplicam em atualização (self.instance existe).
+        if self.instance is not None:
+            self._validate_terminal_lock(data)
+            self._validate_status_transition(data)
+
         if self._should_validate_schedule(data):
             self._validate_duration(duration_minutes)
-            self._validate_professional_availability(
-                professional=professional,
-                scheduled_at=scheduled_at,
-                duration_minutes=duration_minutes,
-            )
+            if not ignore_availability:
+                self._validate_professional_availability(
+                    professional=professional,
+                    scheduled_at=scheduled_at,
+                    duration_minutes=duration_minutes,
+                )
+            # O conflito de horário é sempre validado, mesmo ignorando a disponibilidade.
             self._validate_schedule_conflicts(
                 professional=professional,
                 clinic=clinic,
@@ -190,6 +247,98 @@ class AppointmentSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+    # Transições de status permitidas (a partir do status atual).
+    # 'cancelled' é terminal; 'completed'/'no_show' só permitem desfazer para 'scheduled'.
+    ALLOWED_STATUS_TRANSITIONS = {
+        Appointment.Status.SCHEDULED: {
+            Appointment.Status.SCHEDULED,
+            Appointment.Status.COMPLETED,
+            Appointment.Status.CANCELLED,
+            Appointment.Status.RESCHEDULED,
+            Appointment.Status.NO_SHOW,
+        },
+        Appointment.Status.RESCHEDULED: {
+            Appointment.Status.RESCHEDULED,
+            Appointment.Status.COMPLETED,
+            Appointment.Status.CANCELLED,
+            Appointment.Status.SCHEDULED,
+            Appointment.Status.NO_SHOW,
+        },
+        Appointment.Status.COMPLETED: {
+            Appointment.Status.COMPLETED,
+            Appointment.Status.SCHEDULED,
+        },
+        Appointment.Status.NO_SHOW: {
+            Appointment.Status.NO_SHOW,
+            Appointment.Status.SCHEDULED,
+        },
+        Appointment.Status.CANCELLED: {
+            Appointment.Status.CANCELLED,
+        },
+    }
+
+    def _validate_terminal_lock(self, data):
+        """Bloqueia alterar os campos-núcleo de uma consulta concluída/cancelada."""
+        current_status = getattr(self.instance, 'status', None)
+        if current_status not in (
+            Appointment.Status.COMPLETED,
+            Appointment.Status.CANCELLED,
+        ):
+            return
+
+        locked_fields = [
+            'patient', 'professional', 'clinic', 'scheduled_at', 'duration_minutes'
+        ]
+        for field in locked_fields:
+            if field in data and data[field] != getattr(self.instance, field):
+                raise serializers.ValidationError(
+                    'Consulta concluída ou cancelada não pode ter seus dados alterados.'
+                )
+
+    def _validate_status_transition(self, data):
+        """Valida a mudança de status e preenche/limpa completed_at."""
+        if 'status' not in data:
+            return
+
+        old_status = getattr(self.instance, 'status', None)
+        new_status = data['status']
+
+        allowed = self.ALLOWED_STATUS_TRANSITIONS.get(old_status, set())
+        if new_status not in allowed:
+            raise serializers.ValidationError(
+                {'status': f'Transição de status não permitida a partir de "{old_status}".'}
+            )
+
+        if new_status == Appointment.Status.COMPLETED:
+            # Data de realização: usa a informada ou assume agora. Nunca no futuro.
+            completed_at = data.get('completed_at') or timezone.now()
+            if completed_at > timezone.now():
+                raise serializers.ValidationError(
+                    {'completed_at': 'A data de realização não pode ser no futuro.'}
+                )
+            data['completed_at'] = completed_at
+
+        elif new_status == Appointment.Status.NO_SHOW:
+            scheduled_at = getattr(self.instance, 'scheduled_at', None)
+            if scheduled_at and scheduled_at > timezone.now():
+                raise serializers.ValidationError(
+                    {'status': 'Não é possível marcar falta em uma consulta futura.'}
+                )
+
+        elif new_status == Appointment.Status.RESCHEDULED:
+            if 'scheduled_at' not in data:
+                raise serializers.ValidationError(
+                    {'scheduled_at': 'Informe a nova data ao remarcar a consulta.'}
+                )
+            if data['scheduled_at'] == getattr(self.instance, 'scheduled_at', None):
+                raise serializers.ValidationError(
+                    {'scheduled_at': 'A nova data deve ser diferente da atual.'}
+                )
+
+        # Ao sair de "concluída" (desfazer), limpa a data de realização.
+        if old_status == Appointment.Status.COMPLETED and new_status != Appointment.Status.COMPLETED:
+            data['completed_at'] = None
 
     def _should_validate_schedule(self, data):
         if self.instance is None:
@@ -202,6 +351,50 @@ class AppointmentSerializer(serializers.ModelSerializer):
             return True
 
         return data.get('status') == Appointment.Status.RESCHEDULED
+
+    def _enforce_assigned_professional(self, user, patient, professional, data):
+        """
+        Trava o paciente no psicologo responsavel pelo seu perfil.
+
+        O paciente nao escolhe com quem se consulta — o vinculo e definido pelo
+        administrador no cadastro (PatientProfile.assigned_professional) e so
+        ele pode altera-lo. Esconder o seletor no aplicativo nao basta: sem esta
+        checagem um POST direto na API continuaria agendando com qualquer
+        profissional da clinica.
+
+        Staff (admin, profissional e superuser) NAO passa por aqui — precisa
+        poder marcar com um substituto quando o titular esta de ferias. E o
+        mesmo criterio de staff aplicado em ignore_availability.
+        """
+        is_patient_request = bool(
+            user
+            and user.is_authenticated
+            and user.is_patient
+            and not user.is_superuser
+        )
+        if not is_patient_request or patient is None:
+            return professional
+
+        assigned = patient.assigned_professional
+
+        # Alteracao de consulta existente: o paciente pode remarcar horario, mas
+        # nao trocar o profissional. A consulta pode ter sido criada pela
+        # secretaria com um substituto, entao comparamos com o que ja esta
+        # gravado — e nao com o vinculo — para nao travar essa remarcacao.
+        if self.instance is not None:
+            if 'professional' in data and data['professional'] != self.instance.professional:
+                raise serializers.ValidationError(
+                    {'professional': 'Voce nao pode trocar o psicologo da consulta. Solicite ao administrador da clinica.'}
+                )
+            return professional
+
+        if professional is not None and professional.id != assigned.id:
+            raise serializers.ValidationError(
+                {'professional': 'Voce so pode agendar com o seu psicologo responsavel. Para trocar, solicite ao administrador da clinica.'}
+            )
+
+        data['professional'] = assigned
+        return assigned
 
     def _validate_duration(self, duration_minutes):
         if duration_minutes <= 0:
@@ -351,9 +544,10 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
 
 class AppointmentCancelSerializer(serializers.ModelSerializer):
+    # Motivo é opcional — admin/profissional podem cancelar sem justificar.
     cancel_reason = serializers.CharField(
-        required=True,
-        allow_blank=False,
+        required=False,
+        allow_blank=True,
         trim_whitespace=True,
     )
 
@@ -362,15 +556,20 @@ class AppointmentCancelSerializer(serializers.ModelSerializer):
         fields = ['cancel_reason']
 
     def validate(self, data):
-        if not self.instance.can_cancel():
+        # Consulta já concluída ou cancelada não pode ser cancelada.
+        # (A antiga trava de 24h de antecedência foi removida — cancelamento livre.)
+        if self.instance.status in (
+            Appointment.Status.COMPLETED,
+            Appointment.Status.CANCELLED,
+        ):
             raise serializers.ValidationError(
-                'Não é possível cancelar com menos de 24h de antecedência.'
+                'Esta consulta não pode ser cancelada.'
             )
         return data
 
     def update(self, instance, validated_data):
         instance.status = Appointment.Status.CANCELLED
-        instance.cancel_reason = validated_data['cancel_reason']
+        instance.cancel_reason = validated_data.get('cancel_reason', '')
         instance.save()
         return instance
 
@@ -380,16 +579,3 @@ class SessionNoteSerializer(serializers.ModelSerializer):
         model = SessionNote
         fields = ['id', 'appointment', 'notes', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-class RatingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Rating
-        fields = ['id', 'appointment', 'score', 'comment', 'created_at']
-        # appointment é injetado pelo perform_create via URL param — não precisa vir no body
-        read_only_fields = ['id', 'appointment', 'created_at']
-
-    def validate_score(self, value):
-        if not 1 <= value <= 5:
-            raise serializers.ValidationError('A nota deve ser entre 1 e 5.')
-        return value
