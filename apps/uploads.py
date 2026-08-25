@@ -65,3 +65,35 @@ def validate_signature(uploaded_file, extension):
         raise serializers.ValidationError(
             'O conteúdo do arquivo não corresponde à extensão informada.'
         )
+
+
+def validate_no_replace_and_remove(attrs, field_name, remove_flag_name):
+    """
+    Usado no validate() de serializers com um campo de arquivo substituível
+    (logo da clínica, foto de perfil) + uma flag write-only `remove_<campo>`
+    para limpar via multipart. Barra o caso ambíguo de mandar os dois juntos.
+    """
+    if attrs.get(remove_flag_name) and attrs.get(field_name):
+        raise serializers.ValidationError(
+            {field_name: 'Envie um arquivo novo ou remova o atual, não os dois.'}
+        )
+
+
+def replace_file_field(instance, field_name, validated_data, remove_flag_name):
+    """
+    Usado no update() do mesmo tipo de serializer acima: apaga o arquivo
+    antigo do storage ao trocar ou remover, e resolve a flag `remove_<campo>`
+    em None no campo real — um campo de arquivo vazio no multipart não é
+    interpretado como "remover" pelo DRF.
+    """
+    remove = validated_data.pop(remove_flag_name, False)
+    new_value = validated_data.get(field_name)
+
+    if remove or new_value:
+        old_value = getattr(instance, field_name)
+        if old_value:
+            old_value.delete(save=False)
+        if remove:
+            validated_data[field_name] = None
+
+    return validated_data

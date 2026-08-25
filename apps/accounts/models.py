@@ -136,6 +136,7 @@ class PatientProfile(models.Model):
         verbose_name='Psicólogo responsável',
     )
 
+    photo = models.ImageField(upload_to='patients/photos/', null=True, blank=True)
     birth_date = models.DateField(null=True, blank=True)
     cpf = models.CharField(max_length=14, unique=True, null=True, blank=True, validators=[validate_cpf])
     medical_history = models.TextField(blank=True, help_text='Histórico médico básico')

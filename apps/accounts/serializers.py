@@ -6,6 +6,9 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, PatientProfile, ProfessionalProfile
 from apps.notifications.utils import send_invitation_email, send_password_reset_email
+from apps.uploads import replace_file_field, validate_no_replace_and_remove, validate_size
+
+MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024
 
 
 class CustomTokenObtainSerializer(TokenObtainPairSerializer):
@@ -45,11 +48,26 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ProfessionalProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    # Flag write-only para remover a foto atual via multipart (um campo de
+    # arquivo vazio não é interpretado como "limpar" pelo DRF).
+    remove_photo = serializers.BooleanField(required=False, write_only=True, default=False)
 
     class Meta:
         model = ProfessionalProfile
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_photo(self, value):
+        validate_size(value, MAX_PROFILE_PHOTO_SIZE, 'A foto não pode ser maior que 5MB.')
+        return value
+
+    def validate(self, attrs):
+        validate_no_replace_and_remove(attrs, 'photo', 'remove_photo')
+        return attrs
+
+    def update(self, instance, validated_data):
+        validated_data = replace_file_field(instance, 'photo', validated_data, 'remove_photo')
+        return super().update(instance, validated_data)
 
 
 class PatientProfileSerializer(serializers.ModelSerializer):
@@ -66,6 +84,10 @@ class PatientProfileSerializer(serializers.ModelSerializer):
     # esses campos do serializer quando quem acessa e o paciente dono do perfil;
     # profissional e admin continuam com acesso normal.
     CLINICAL_FIELDS = ('medical_history', 'anamnesis')
+
+    # Flag write-only para remover a foto atual via multipart (um campo de
+    # arquivo vazio não é interpretado como "limpar" pelo DRF).
+    remove_photo = serializers.BooleanField(required=False, write_only=True, default=False)
 
     class Meta:
         model = PatientProfile
@@ -87,6 +109,18 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             if assigned is not None:
                 assigned.read_only = True
 
+    def validate_photo(self, value):
+        validate_size(value, MAX_PROFILE_PHOTO_SIZE, 'A foto não pode ser maior que 5MB.')
+        return value
+
+    def validate(self, attrs):
+        validate_no_replace_and_remove(attrs, 'photo', 'remove_photo')
+        return attrs
+
+    def update(self, instance, validated_data):
+        validated_data = replace_file_field(instance, 'photo', validated_data, 'remove_photo')
+        return super().update(instance, validated_data)
+
 
 class PatientListSerializer(serializers.ModelSerializer):
     """
@@ -102,7 +136,7 @@ class PatientListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientProfile
         fields = [
-            'id', 'user', 'birth_date', 'cpf', 'created_at',
+            'id', 'user', 'photo', 'birth_date', 'cpf', 'created_at',
             'assigned_professional', 'assigned_professional_detail',
         ]
         read_only_fields = fields
@@ -182,6 +216,10 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_photo(self, value):
+        validate_size(value, MAX_PROFILE_PHOTO_SIZE, 'A foto não pode ser maior que 5MB.')
+        return value
+
     def validate(self, attrs):
         request = self.context['request']
         creator = request.user
@@ -239,7 +277,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         patient_fields = [
             'birth_date', 'cpf', 'medical_history', 'anamnesis',
             'emergency_contact_name', 'emergency_contact_phone',
-            'assigned_professional',
+            'assigned_professional', 'photo',
         ]
         professional_fields = [
             'crp', 'specialty', 'bio', 'session_duration_minutes', 'photo',
