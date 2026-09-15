@@ -41,3 +41,65 @@ class Clinic(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Room(models.Model):
+    """Sala física disponível para consultas da clínica."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    clinic = models.ForeignKey(
+        Clinic,
+        on_delete=models.CASCADE,
+        related_name='rooms',
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Sala'
+        verbose_name_plural = 'Salas'
+        ordering = ['name']
+
+    # Rotulos do estado calculado (nunca persistido no banco).
+    STATUS_FREE = 'livre'
+    STATUS_BUSY = 'ocupada'
+
+    def __str__(self):
+        return f'{self.name} - {self.clinic.name}'
+
+    @classmethod
+    def occupied_ids_between(cls, clinic, start, end):
+        """
+        IDs das salas da clinica ocupadas no intervalo `[start, end)`.
+
+        A ocupacao nunca e gravada: ela vem da intersecao com as consultas em
+        aberto (agendada/remarcada). Consultas canceladas nao ocupam a sala.
+        Quando `start == end` o intervalo e instantaneo e responde
+        "a sala esta ocupada neste momento?".
+        """
+        from apps.appointments.models import Appointment
+
+        candidatas = Appointment.objects.filter(
+            room__clinic=clinic,
+            room__isnull=False,
+            status__in=[
+                Appointment.Status.SCHEDULED,
+                Appointment.Status.RESCHEDULED,
+            ],
+        )
+        if start == end:
+            # Intervalo instantaneo: a consulta precisa estar acontecendo.
+            candidatas = candidatas.filter(scheduled_at__lte=start)
+        else:
+            candidatas = candidatas.filter(scheduled_at__lt=end)
+
+        return {
+            appointment.room_id
+            for appointment in candidatas.only(
+                'room_id', 'scheduled_at', 'duration_minutes'
+            )
+            if appointment.ends_at > start
+        }

@@ -6,6 +6,8 @@ from django.utils import timezone
 from .models import Appointment, Availability, SessionNote
 from apps.accounts.serializers import ProfessionalProfileSerializer, PatientProfileSerializer
 from apps.accounts.models import PatientProfile, ProfessionalProfile
+from apps.clinics.models import Room
+from apps.clinics.serializers import RoomSerializer
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):
@@ -37,6 +39,7 @@ class AvailabilitySerializer(serializers.ModelSerializer):
 class AppointmentSerializer(serializers.ModelSerializer):
     professional_detail = ProfessionalProfileSerializer(source='professional', read_only=True)
     patient_detail = PatientProfileSerializer(source='patient', read_only=True)
+    room_detail = RoomSerializer(source='room', read_only=True)
     # status_display mostra "Dia Ultrapassado" quando a consulta segue em aberto
     # e o dia dela já passou. O `status` gravado continua sendo 'scheduled'/
     # 'rescheduled' — o estado é só de exibição (ver Appointment.is_overdue).
@@ -69,6 +72,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
         write_only=True, required=False, default=False
     )
 
+    # Sala opcional da consulta. Pacientes nao podem enviar o campo (validado
+    # em _validate_room); admin/profissional escolhem uma sala ativa da clinica.
+    room = serializers.PrimaryKeyRelatedField(
+        queryset=Room.objects.all(), required=False, allow_null=True,
+    )
+
     class Meta:
         model = Appointment
         fields = [
@@ -77,6 +86,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'is_overdue',
             'cancel_reason', 'can_cancel', 'completed_at', 'ignore_availability',
             'professional_detail', 'patient_detail',
+            'room', 'room_detail',
             'created_at', 'updated_at',
         ]
         # 'patient' removido de read_only_fields para que admin/profissional
@@ -196,6 +206,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'duration_minutes',
             getattr(self.instance, 'duration_minutes', 50)
         )
+        room = data.get('room', getattr(self.instance, 'room', None))
 
         if user and user.is_authenticated:
             if patient is None and user.is_patient:
@@ -223,6 +234,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
         self._validate_same_clinic(patient, professional, clinic)
         self._validate_user_scope(user, patient, professional, clinic)
+        self._validate_room(user, room, clinic)
 
         # Validações de mudança de status e trava de consultas terminais —
         # só se aplicam em atualização (self.instance existe).
@@ -245,8 +257,53 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 scheduled_at=scheduled_at,
                 duration_minutes=duration_minutes,
             )
+            self._validate_room_conflicts(
+                room=room,
+                clinic=clinic,
+                scheduled_at=scheduled_at,
+                duration_minutes=duration_minutes,
+            )
 
         return data
+
+    def _validate_room(self, user, room, clinic):
+        if room is None:
+            return
+        if user and user.is_authenticated and user.is_patient and not user.is_superuser:
+            raise serializers.ValidationError(
+                {'room': 'Pacientes não podem escolher a sala da consulta.'}
+            )
+        if clinic is None or room.clinic_id != clinic.id:
+            raise serializers.ValidationError(
+                {'room': 'A sala deve pertencer à mesma clínica da consulta.'}
+            )
+        if self.instance is None and not room.is_active:
+            raise serializers.ValidationError(
+                {'room': 'A sala selecionada está inativa.'}
+            )
+
+    def _validate_room_conflicts(
+        self, room, clinic, scheduled_at, duration_minutes
+    ):
+        if not room or not clinic or not scheduled_at:
+            return
+        end_at = scheduled_at + timedelta(minutes=duration_minutes)
+        queryset = Appointment.objects.filter(
+            room=room,
+            clinic=clinic,
+            scheduled_at__lt=end_at,
+            status__in=[
+                Appointment.Status.SCHEDULED,
+                Appointment.Status.RESCHEDULED,
+            ],
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        for appointment in queryset.only('scheduled_at', 'duration_minutes'):
+            if appointment.ends_at > scheduled_at:
+                raise serializers.ValidationError(
+                    {'room': 'A sala já está ocupada neste horário.'}
+                )
 
     # Transições de status permitidas (a partir do status atual).
     # 'cancelled' é terminal; 'completed'/'no_show' só permitem desfazer para 'scheduled'.
@@ -288,7 +345,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             return
 
         locked_fields = [
-            'patient', 'professional', 'clinic', 'scheduled_at', 'duration_minutes'
+            'patient', 'professional', 'clinic', 'room', 'scheduled_at', 'duration_minutes'
         ]
         for field in locked_fields:
             if field in data and data[field] != getattr(self.instance, field):
@@ -345,7 +402,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             return True
 
         scheduling_fields = {
-            'scheduled_at', 'duration_minutes', 'professional', 'clinic'
+            'scheduled_at', 'duration_minutes', 'professional', 'clinic', 'room'
         }
         if scheduling_fields.intersection(data.keys()):
             return True

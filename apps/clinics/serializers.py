@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from apps.uploads import replace_file_field, validate_no_replace_and_remove, validate_size
-from .models import Clinic
+from .models import Clinic, Room
 
 HEX_COLOR_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
 MAX_LOGO_SIZE = 5 * 1024 * 1024
@@ -84,3 +84,29 @@ class ClinicSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Clinic
         fields = ['id', 'name', 'address', 'phone']
+
+
+class RoomSerializer(serializers.ModelSerializer):
+    """
+    Sala da clinica.
+
+    `status` e DERIVADO: 'livre'/'ocupada' calculado a partir das consultas em
+    aberto do intervalo pedido. Nao existe coluna de status no banco — a view
+    injeta `occupied_room_ids` no contexto e aqui so consultamos esse conjunto.
+    Sem contexto de intervalo (ex.: resposta de POST/PATCH), o campo e omitido.
+    """
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Room
+        fields = [
+            'id', 'clinic', 'name', 'description', 'is_active', 'status',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'clinic', 'created_at', 'updated_at']
+
+    def get_status(self, obj):
+        occupied = self.context.get('occupied_room_ids')
+        if occupied is None:
+            return None
+        return Room.STATUS_BUSY if obj.id in occupied else Room.STATUS_FREE

@@ -74,6 +74,13 @@ class Appointment(models.Model):
         on_delete=models.CASCADE,
         related_name='appointments'
     )
+    room = models.ForeignKey(
+        'clinics.Room',
+        on_delete=models.PROTECT,
+        related_name='appointments',
+        null=True,
+        blank=True,
+    )
 
     scheduled_at = models.DateTimeField()
     duration_minutes = models.PositiveIntegerField(default=50)

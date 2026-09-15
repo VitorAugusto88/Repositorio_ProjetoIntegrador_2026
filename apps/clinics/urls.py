@@ -7,6 +7,8 @@ urlpatterns = [
     path('<uuid:pk>/', views.ClinicDetailView.as_view(), name='clinic-detail'),
     path('<uuid:pk>/professionals/', views.ClinicProfessionalsView.as_view(), name='clinic-professionals'),
     path('<uuid:pk>/stats/', views.ClinicStatsView.as_view(), name='clinic-stats'),
+    path('<uuid:clinic_id>/rooms/', views.ClinicRoomListCreateView.as_view(), name='clinic-room-list'),
+    path('<uuid:clinic_id>/rooms/<uuid:pk>/', views.ClinicRoomDetailView.as_view(), name='clinic-room-detail'),
 ]
 
 #GET    /api/clinics/

@@ -99,6 +99,43 @@ Admin disponível em: http://localhost:8000/admin
 
 ---
 
+## Rodando os testes
+
+O banco configurado no `.env` é um Postgres gerenciado, que não permite criar o
+banco temporário `test_*` exigido pelo runner do Django. Por isso a suíte roda com
+`config/settings_test.py`, que troca o banco por SQLite em memória (nenhum modelo
+usa campo específico de Postgres) e desliga Redis/SMTP.
+
+```bash
+python manage.py test --settings=config.settings_test              # tudo
+python manage.py test apps.clinics --settings=config.settings_test # um app
+python manage.py test apps.appointments.tests.AppointmentRoomTests --settings=config.settings_test
+python manage.py makemigrations --check --dry-run --settings=config.settings_test
+```
+
+## Salas de atendimento
+
+| Método | URL | Descrição | Quem pode |
+|--------|-----|-----------|-----------|
+| GET | `/api/clinics/<clinic_id>/rooms/` | Lista as salas da clínica | Admin (todas) e profissional (só ativas) |
+| POST | `/api/clinics/<clinic_id>/rooms/` | Cria sala | Admin |
+| GET | `/api/clinics/<clinic_id>/rooms/<room_id>/` | Detalhe da sala | Usuários da clínica |
+| PATCH | `/api/clinics/<clinic_id>/rooms/<room_id>/` | Edita / ativa / desativa | Admin |
+| DELETE | `/api/clinics/<clinic_id>/rooms/<room_id>/` | Exclui sala | Admin, só sem consultas vinculadas |
+
+A listagem aceita `?start=&end=` (ISO-8601) e devolve, em cada sala, o campo
+derivado `status`: `livre` ou `ocupada`. **Não existe coluna de status no banco** —
+a ocupação é calculada pela interseção com as consultas em aberto no intervalo
+`[scheduled_at, scheduled_at + duration_minutes)`. Consultas canceladas não
+ocupam a sala. Sem `start`/`end`, o intervalo é o instante atual.
+
+A consulta (`Appointment`) ganhou o campo opcional `room` (leitura em
+`room_detail`). Pacientes não podem enviá-lo; a sala precisa ser da mesma clínica,
+estar ativa no momento da criação e não conflitar com outra consulta — inclusive
+quando o profissional for outro.
+
+---
+
 ## Endpoints da Fase 1
 
 ### Autenticação

@@ -1,10 +1,12 @@
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from .models import Clinic
-from .serializers import ClinicSerializer
+from .models import Clinic, Room
+from .serializers import ClinicSerializer, RoomSerializer
 from apps.accounts.permissions import IsAdminOnly, IsPlatformAdmin
 
 
@@ -115,3 +117,96 @@ class ClinicStatsView(APIView):
             'total_patients': total_patients,
             'total_professionals': total_professionals,
         })
+
+
+class ClinicRoomListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/clinics/<clinic_id>/rooms/
+    POST /api/clinics/<clinic_id>/rooms/
+    """
+    serializer_class = RoomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_clinic(self):
+        clinic = generics.get_object_or_404(Clinic, pk=self.kwargs['clinic_id'])
+        user = self.request.user
+        if not user.is_superuser and user.clinic_id != clinic.id:
+            raise PermissionDenied('Voce nao pode acessar salas de outra clinica.')
+        return clinic
+
+    def get_queryset(self):
+        queryset = Room.objects.filter(clinic=self.get_clinic())
+        if self.request.method == 'GET' and not self.request.user.is_admin:
+            queryset = queryset.filter(is_active=True)
+        return queryset
+
+    def get_interval(self):
+        """
+        Intervalo `[start, end)` pedido via querystring, em ISO-8601.
+
+        Sem `start`, usa o instante atual; sem `end`, o intervalo e
+        instantaneo. Retorna (start, end).
+        """
+        def parse(nome):
+            bruto = self.request.query_params.get(nome)
+            if not bruto:
+                return None
+            valor = parse_datetime(bruto)
+            if valor is None:
+                raise ValidationError(
+                    {nome: 'Informe uma data/hora valida no formato ISO-8601.'}
+                )
+            if timezone.is_naive(valor):
+                valor = timezone.make_aware(valor)
+            return valor
+
+        start = parse('start') or timezone.now()
+        end = parse('end') or start
+        if end < start:
+            raise ValidationError(
+                {'end': 'O fim do intervalo deve ser depois do inicio.'}
+            )
+        return start, end
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # `status` so faz sentido na listagem: POST devolve a sala recem-criada.
+        if self.request.method == 'GET':
+            start, end = self.get_interval()
+            context['occupied_room_ids'] = Room.occupied_ids_between(
+                self.get_clinic(), start, end
+            )
+        return context
+
+    def perform_create(self, serializer):
+        if not (self.request.user.is_superuser or self.request.user.is_admin):
+            raise PermissionDenied('Apenas administradores podem criar salas.')
+        serializer.save(clinic=self.get_clinic())
+
+
+class ClinicRoomDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET/PATCH/DELETE /api/clinics/<clinic_id>/rooms/<room_id>/
+    """
+    serializer_class = RoomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        clinic = generics.get_object_or_404(Clinic, pk=self.kwargs['clinic_id'])
+        user = self.request.user
+        if not user.is_superuser and user.clinic_id != clinic.id:
+            raise PermissionDenied('Voce nao pode acessar salas de outra clinica.')
+        return Room.objects.filter(clinic=clinic)
+
+    def get_permissions(self):
+        if self.request.method in ('PATCH', 'PUT', 'DELETE'):
+            return [IsAdminOnly()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_destroy(self, instance):
+        if instance.appointments.exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                {'detail': 'Não é possível excluir uma sala com agendamentos vinculados.'}
+            )
+        instance.delete()

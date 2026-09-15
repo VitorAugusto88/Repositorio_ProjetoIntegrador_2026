@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import PatientProfile, ProfessionalProfile, User
-from apps.clinics.models import Clinic
+from apps.clinics.models import Clinic, Room
 
 from .models import Appointment, Availability
 from .serializers import AppointmentSerializer
@@ -255,3 +255,286 @@ class AssignedProfessionalTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('professional', response.data)
+
+
+class AppointmentRoomTests(APITestCase):
+    """
+    Sala opcional na consulta.
+
+    Regras cobertas: sala opcional, isolamento por clinica, sala inativa,
+    paciente sem permissao de escolher sala e ocupacao calculada por
+    intersecao de intervalos `[scheduled_at, scheduled_at + duration)`.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.clinic = Clinic.objects.create(name='Clinica de Salas')
+        cls.other_clinic = Clinic.objects.create(name='Clinica Vizinha')
+
+        professional_user = User.objects.create_user(
+            email='room.prof@example.com', password='SenhaTeste123',
+            full_name='Profissional da Sala', role=User.Role.PROFESSIONAL,
+            clinic=cls.clinic,
+        )
+        cls.professional = ProfessionalProfile.objects.create(
+            user=professional_user, crp='ROOM-1'
+        )
+
+        # Segundo profissional da mesma clinica: a sala precisa continuar
+        # bloqueada mesmo quando quem atende e outra pessoa.
+        other_professional_user = User.objects.create_user(
+            email='room.prof2@example.com', password='SenhaTeste123',
+            full_name='Outro Profissional', role=User.Role.PROFESSIONAL,
+            clinic=cls.clinic,
+        )
+        cls.other_professional = ProfessionalProfile.objects.create(
+            user=other_professional_user, crp='ROOM-2'
+        )
+
+        patient_user = User.objects.create_user(
+            email='room.patient@example.com', password='SenhaTeste123',
+            full_name='Paciente da Sala', role=User.Role.PATIENT,
+            clinic=cls.clinic,
+        )
+        cls.patient = PatientProfile.objects.create(
+            user=patient_user, assigned_professional=cls.professional
+        )
+        cls.patient_user = patient_user
+
+        cls.admin = User.objects.create_user(
+            email='room.admin@example.com', password='SenhaTeste123',
+            full_name='Admin da Sala', role=User.Role.ADMIN, clinic=cls.clinic,
+        )
+
+        cls.room = Room.objects.create(clinic=cls.clinic, name='Sala 01')
+        cls.inactive_room = Room.objects.create(
+            clinic=cls.clinic, name='Sala Desativada', is_active=False
+        )
+        cls.foreign_room = Room.objects.create(
+            clinic=cls.other_clinic, name='Sala de Outra Clinica'
+        )
+
+        # A disponibilidade e validada em horario local (America/Sao_Paulo),
+        # entao a data base tambem precisa ser montada em horario local.
+        cls.scheduled_at = timezone.localtime(
+            timezone.now() + timedelta(days=7)
+        ).replace(hour=10, minute=0, second=0, microsecond=0)
+
+        for professional in (cls.professional, cls.other_professional):
+            Availability.objects.create(
+                professional=professional,
+                weekday=cls.scheduled_at.weekday(),
+                start_time=time(8, 0), end_time=time(18, 0),
+            )
+
+    def payload(self, **extra):
+        payload = {
+            'professional': str(self.professional.id),
+            'patient': str(self.patient.id),
+            'clinic': str(self.clinic.id),
+            'scheduled_at': self.scheduled_at.isoformat(),
+            'duration_minutes': 50,
+        }
+        payload.update(extra)
+        return payload
+
+    def ocupar_sala(self, start=None, duration=50, status_consulta='scheduled'):
+        """Ocupa a sala com uma consulta de OUTRO profissional."""
+        return Appointment.objects.create(
+            patient=self.patient, professional=self.other_professional,
+            clinic=self.clinic, room=self.room,
+            scheduled_at=start or self.scheduled_at,
+            duration_minutes=duration,
+            status=status_consulta,
+        )
+
+    # --- sala opcional -----------------------------------------------------
+
+    def test_admin_pode_agendar_sem_sala(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(reverse('appointment-list'), self.payload())
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertIsNone(response.data['room'])
+        self.assertIsNone(response.data['room_detail'])
+
+    def test_admin_pode_agendar_com_sala(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['room_detail']['name'], 'Sala 01')
+
+    def test_profissional_pode_agendar_com_sala(self):
+        self.client.force_authenticate(self.professional.user)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(str(response.data['room']), str(self.room.id))
+
+    # --- permissoes e escopo ----------------------------------------------
+
+    def test_paciente_nao_pode_escolher_sala(self):
+        self.client.force_authenticate(self.patient_user)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    def test_sala_de_outra_clinica_e_rejeitada(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.foreign_room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    def test_sala_inativa_nao_pode_ser_usada_em_novo_agendamento(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.inactive_room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    # --- ocupacao por intersecao de intervalos -----------------------------
+
+    def test_sala_sobreposta_e_rejeitada_mesmo_com_profissional_diferente(self):
+        self.ocupar_sala()
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    def test_sobreposicao_parcial_e_rejeitada(self):
+        # Existente 10:00-10:50; nova 10:30-11:20 invade os ultimos 20 minutos.
+        self.ocupar_sala()
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(reverse('appointment-list'), self.payload(
+            room=str(self.room.id),
+            scheduled_at=(self.scheduled_at + timedelta(minutes=30)).isoformat(),
+        ))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    def test_consulta_contida_no_intervalo_e_rejeitada(self):
+        # Existente 10:00-11:40; nova 10:20-10:50 fica inteiramente dentro.
+        self.ocupar_sala(duration=100)
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(reverse('appointment-list'), self.payload(
+            room=str(self.room.id),
+            scheduled_at=(self.scheduled_at + timedelta(minutes=20)).isoformat(),
+            duration_minutes=30,
+        ))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    def test_agendamento_exatamente_apos_o_fim_e_aceito(self):
+        # Existente 10:00-10:50; nova comeca 10:50 — o intervalo e fechado no
+        # inicio e aberto no fim, entao nao ha conflito.
+        self.ocupar_sala()
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(reverse('appointment-list'), self.payload(
+            room=str(self.room.id),
+            scheduled_at=(self.scheduled_at + timedelta(minutes=50)).isoformat(),
+        ))
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_consulta_cancelada_libera_a_sala(self):
+        self.ocupar_sala(status_consulta='cancelled')
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            reverse('appointment-list'), self.payload(room=str(self.room.id))
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_remarcacao_recalcula_o_conflito_de_sala(self):
+        ocupada = self.ocupar_sala(start=self.scheduled_at + timedelta(minutes=60))
+        consulta = Appointment.objects.create(
+            patient=self.patient, professional=self.professional,
+            clinic=self.clinic, room=self.room,
+            scheduled_at=self.scheduled_at, duration_minutes=50,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            reverse('appointment-detail', args=[consulta.id]),
+            {'scheduled_at': ocupada.scheduled_at.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('room', response.data)
+
+    def test_remarcacao_para_horario_livre_e_aceita(self):
+        consulta = Appointment.objects.create(
+            patient=self.patient, professional=self.professional,
+            clinic=self.clinic, room=self.room,
+            scheduled_at=self.scheduled_at, duration_minutes=50,
+        )
+        self.client.force_authenticate(self.admin)
+
+        novo_horario = self.scheduled_at + timedelta(minutes=120)
+        response = self.client.patch(
+            reverse('appointment-detail', args=[consulta.id]),
+            {'scheduled_at': novo_horario.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+    # --- leitura -----------------------------------------------------------
+
+    def test_detalhe_retorna_sala_e_profissional(self):
+        consulta = Appointment.objects.create(
+            patient=self.patient, professional=self.professional,
+            clinic=self.clinic, room=self.room,
+            scheduled_at=self.scheduled_at, duration_minutes=50,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(reverse('appointment-detail', args=[consulta.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data['room_detail']['name'], 'Sala 01')
+        self.assertEqual(
+            response.data['professional_detail']['user']['full_name'],
+            'Profissional da Sala',
+        )
+
+    def test_consulta_sem_sala_retorna_room_detail_nulo(self):
+        consulta = Appointment.objects.create(
+            patient=self.patient, professional=self.professional,
+            clinic=self.clinic, scheduled_at=self.scheduled_at,
+            duration_minutes=50,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(reverse('appointment-detail', args=[consulta.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIsNone(response.data['room_detail'])
