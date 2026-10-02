@@ -20,7 +20,11 @@ def get_documents_for_user(user):
     base = Document.objects.select_related('patient__user', 'clinic')
     if user.is_superuser:
         return base
-    if user.is_admin or user.is_professional:
+    if user.is_admin:
+        # Secretaria/admin nao acessa documentos clinicos de pacientes: so os
+        # avulsos (administrativos, sem paciente) da propria clinica.
+        return base.filter(patient__isnull=True, clinic_id=user.clinic_id)
+    if user.is_professional:
         # Documentos da clínica: vinculados a um paciente da clínica OU avulsos
         # (sem paciente) marcados com a clínica. Inclui docs de pacientes
         # arquivados, cujo PatientProfile é preservado.
@@ -100,6 +104,9 @@ class DocumentListCreateView(generics.ListCreateAPIView):
             return
 
         patient = serializer.validated_data.get('patient')
+
+        if user.is_admin and patient:
+            raise PermissionDenied('Apenas o psicologo pode anexar documentos clinicos de pacientes.')
 
         # Documento avulso (sem paciente): permitido para admin/profissional,
         # escopado à clínica do usuário.

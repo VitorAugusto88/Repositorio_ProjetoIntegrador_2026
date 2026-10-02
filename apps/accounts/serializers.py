@@ -80,7 +80,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
     )
 
     # Campos clinicos: histórico médico e anamnese são de responsabilidade do
-    # profissional. O proprio paciente nao deve visualizar nem editar. Removemos
+    # profissional. Nem o paciente nem a secretaria (admin) devem visualizar/editar. Removemos
     # esses campos do serializer quando quem acessa e o paciente dono do perfil;
     # profissional e admin continuam com acesso normal.
     CLINICAL_FIELDS = ('medical_history', 'anamnesis')
@@ -98,9 +98,12 @@ class PatientProfileSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        if user is not None and getattr(user, 'is_patient', False):
+        if user is not None and (
+            getattr(user, 'is_patient', False) or getattr(user, 'is_admin', False)
+        ):
             for field_name in self.CLINICAL_FIELDS:
                 self.fields.pop(field_name, None)
+        if user is not None and getattr(user, 'is_patient', False):
             # O paciente PRECISA ver com quem se consulta, mas nao escolhe: a
             # troca de psicologo e feita pelo administrador. Diferente dos
             # campos clinicos acima, o campo permanece visivel — so vira

@@ -86,3 +86,93 @@ class DocumentUploadValidationTests(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn('file', serializer.errors)
+
+
+@override_settings(
+    MEDIA_ROOT=TEMP_MEDIA_ROOT,
+    STORAGES={
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    },
+)
+class SecretaryDocumentAccessTests(TestCase):
+    """Documento clinico (vinculado a paciente) e exclusivo do psicologo."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.accounts.models import PatientProfile, ProfessionalProfile, User
+        from apps.clinics.models import Clinic
+
+        from .models import Document
+
+        cls.clinic = Clinic.objects.create(name='Clinica')
+        cls.admin = User.objects.create_user(
+            email='sec@x.com', password='Senha-forte-123', full_name='Sec',
+            role=User.Role.ADMIN, clinic=cls.clinic,
+        )
+        cls.psi = User.objects.create_user(
+            email='psi@x.com', password='Senha-forte-123', full_name='Psi',
+            role=User.Role.PROFESSIONAL, clinic=cls.clinic,
+        )
+        patient_user = User.objects.create_user(
+            email='pac@x.com', password='Senha-forte-123', full_name='Pac',
+            role=User.Role.PATIENT, clinic=cls.clinic,
+        )
+        cls.patient_user = patient_user
+        prof = ProfessionalProfile.objects.get_or_create(
+            user=cls.psi, defaults={'crp': '06/12345'},
+        )[0]
+        profile = PatientProfile.objects.get_or_create(
+            user=patient_user, defaults={'assigned_professional': prof},
+        )[0]
+        cls.clinical = Document.objects.create(
+            patient=profile, clinic=cls.clinic, title='Laudo',
+            file=SimpleUploadedFile('a.pdf', PDF_BYTES),
+        )
+        cls.avulso = Document.objects.create(
+            clinic=cls.clinic, title='Contrato',
+            file=SimpleUploadedFile('b.pdf', PDF_BYTES),
+        )
+
+    def _ids(self, user):
+        from .views import get_documents_for_user
+        return set(get_documents_for_user(user).values_list('id', flat=True))
+
+    def test_admin_ve_apenas_documentos_avulsos(self):
+        self.assertEqual(self._ids(self.admin), {self.avulso.id})
+
+    def test_psicologo_ve_documento_clinico(self):
+        self.assertIn(self.clinical.id, self._ids(self.psi))
+
+    def test_admin_recebe_404_no_download_clinico(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.get(f'/api/records/documents/{self.clinical.id}/download/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_admin_nao_anexa_documento_a_paciente(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.post('/api/records/documents/', {
+            'title': 'X', 'patient': str(self.clinical.patient_id),
+            'file': SimpleUploadedFile('c.pdf', PDF_BYTES, content_type='application/pdf'),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 403, response.content)
+
+    def test_admin_nao_ve_campos_clinicos_do_perfil(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.get(f'/api/auth/patients/{self.patient_user.id}/profile/')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertNotIn('anamnesis', response.data)
+        self.assertNotIn('medical_history', response.data)
+        client.force_authenticate(self.psi)
+        response = client.get(f'/api/auth/patients/{self.patient_user.id}/profile/')
+        self.assertIn('anamnesis', response.data)
