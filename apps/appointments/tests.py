@@ -424,6 +424,22 @@ class AppointmentRoomTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('room', response.data)
 
+    def test_conflito_do_psicologo_usa_a_mensagem_do_plano_de_teste(self):
+        # D01: a mensagem e a do CT02 do Plano de Teste, com acentuacao.
+        Appointment.objects.create(
+            patient=self.patient, professional=self.professional,
+            clinic=self.clinic, scheduled_at=self.scheduled_at,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(reverse('appointment-list'), self.payload())
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['non_field_errors'],
+            ['Este psicólogo já tem uma consulta agendada nesse horário.'],
+        )
+
     def test_sobreposicao_parcial_e_rejeitada(self):
         # Existente 10:00-10:50; nova 10:30-11:20 invade os ultimos 20 minutos.
         self.ocupar_sala()
@@ -538,3 +554,83 @@ class AppointmentRoomTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertIsNone(response.data['room_detail'])
+
+
+class AvailabilityOverlapTests(APITestCase):
+    """
+    Plano de Teste (unidade): cadastrar disponibilidade de quarta das 14h as 15h
+    para um psicologo que ja tem 14h30 as 16h deve ser recusado por sobreposicao.
+    """
+
+    QUARTA = 2
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.clinic = Clinic.objects.create(name='Clinica Agenda')
+        user = User.objects.create_user(
+            email='agenda@example.com',
+            password='SenhaTeste123',
+            full_name='Psicologo Agenda',
+            role=User.Role.PROFESSIONAL,
+            clinic=cls.clinic,
+        )
+        cls.professional = ProfessionalProfile.objects.create(user=user, crp='CRP-AG')
+        cls.existente = Availability.objects.create(
+            professional=cls.professional, weekday=cls.QUARTA,
+            start_time=time(14, 30), end_time=time(16, 0),
+        )
+
+    def setUp(self):
+        self.client.force_authenticate(self.professional.user)
+
+    def _post(self, start, end, **extra):
+        payload = {
+            'professional': str(self.professional.id),
+            'weekday': self.QUARTA,
+            'start_time': start,
+            'end_time': end,
+        }
+        payload.update(extra)
+        return self.client.post(reverse('availability-list'), payload)
+
+    def test_periodo_sobreposto_e_recusado(self):
+        response = self._post('14:00', '15:00')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+        self.assertEqual(Availability.objects.filter(professional=self.professional).count(), 1)
+
+    def test_periodo_encostado_no_fim_e_aceito(self):
+        response = self._post('16:00', '17:00')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_mesmo_horario_em_outro_dia_e_aceito(self):
+        response = self._post('14:00', '15:00', weekday=self.QUARTA + 1)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_bloqueio_dentro_do_horario_disponivel_e_aceito(self):
+        """Ferias/folga existem para ficar dentro de um periodo disponivel."""
+        response = self._post('15:00', '15:30', blocked=True)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_edicao_que_cria_sobreposicao_e_recusada(self):
+        outro = Availability.objects.create(
+            professional=self.professional, weekday=self.QUARTA,
+            start_time=time(8, 0), end_time=time(10, 0),
+        )
+        response = self.client.patch(
+            reverse('availability-detail', args=[outro.id]),
+            {'end_time': '15:00'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+
+    def test_editar_o_proprio_periodo_nao_conflita_consigo_mesmo(self):
+        response = self.client.patch(
+            reverse('availability-detail', args=[self.existente.id]),
+            {'end_time': '17:00'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)

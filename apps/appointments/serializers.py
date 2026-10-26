@@ -33,7 +33,48 @@ class AvailabilitySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'O horário de início deve ser antes do horário de fim.'
             )
+
+        self._validate_overlap(data, start_time, end_time)
         return data
+
+    def _validate_overlap(self, data, start_time, end_time):
+        """
+        Mesma regra do Availability.clean(), que o DRF nao chama: dois periodos
+        do mesmo profissional no mesmo dia nao podem se sobrepor. So compara
+        periodos do mesmo tipo — um bloqueio (ferias, folga) existe justamente
+        para ficar dentro de um horario disponivel.
+        """
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
+        # No POST a view grava o perfil de quem esta logado, nao o do body.
+        if self.instance is None and user is not None and user.is_professional:
+            professional = getattr(user, 'professional_profile', None)
+        else:
+            professional = data.get(
+                'professional', getattr(self.instance, 'professional', None)
+            )
+
+        weekday = data.get('weekday', getattr(self.instance, 'weekday', None))
+        blocked = data.get('blocked', getattr(self.instance, 'blocked', False))
+
+        if not (professional and start_time and end_time) or weekday is None:
+            return
+
+        overlapping = Availability.objects.filter(
+            professional=professional,
+            weekday=weekday,
+            blocked=blocked,
+            start_time__lt=end_time,
+            end_time__gt=start_time,
+        )
+        if self.instance is not None:
+            overlapping = overlapping.exclude(pk=self.instance.pk)
+
+        if overlapping.exists():
+            raise serializers.ValidationError(
+                'Este período sobrepõe outro horário já cadastrado para o mesmo profissional.'
+            )
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -104,79 +145,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 'Não é possível agendar uma consulta no passado.'
             )
         return value
-
-    def _legacy_validate(self, data):
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-
-        professional = data.get(
-            'professional',
-            getattr(self.instance, 'professional', None)
-        )
-        patient = data.get('patient', getattr(self.instance, 'patient', None))
-        clinic = data.get('clinic', getattr(self.instance, 'clinic', None))
-        scheduled_at = data.get(
-            'scheduled_at',
-            getattr(self.instance, 'scheduled_at', None)
-        )
-
-        if user and user.is_authenticated and not user.is_superuser:
-            if not user.clinic_id:
-                raise serializers.ValidationError('Usuario sem clinica vinculada.')
-
-            if clinic and clinic.id != user.clinic_id:
-                raise serializers.ValidationError(
-                    'A consulta deve pertencer a sua clinica.'
-                )
-
-            if professional and professional.user.clinic_id != user.clinic_id:
-                raise serializers.ValidationError(
-                    'O profissional deve pertencer a sua clinica.'
-                )
-
-            if patient and patient.user.clinic_id != user.clinic_id:
-                raise serializers.ValidationError(
-                    'O paciente deve pertencer a sua clinica.'
-                )
-
-            if user.is_professional:
-                user_professional = getattr(user, 'professional_profile', None)
-                if user_professional is None:
-                    raise serializers.ValidationError(
-                        'Perfil profissional nao encontrado.'
-                    )
-                if professional and professional.id != user_professional.id:
-                    raise serializers.ValidationError(
-                        'Profissionais so podem gerenciar suas proprias consultas.'
-                    )
-
-            if user.is_patient:
-                user_patient = getattr(user, 'patient_profile', None)
-                if user_patient is None:
-                    raise serializers.ValidationError(
-                        'Perfil de paciente nao encontrado.'
-                    )
-                if patient and patient.id != user_patient.id:
-                    raise serializers.ValidationError(
-                        'Pacientes so podem gerenciar suas proprias consultas.'
-                    )
-
-        if professional and scheduled_at:
-            conflito = Appointment.objects.filter(
-                professional=professional,
-                scheduled_at=scheduled_at,
-                status='scheduled'
-            )
-            if clinic:
-                conflito = conflito.filter(clinic=clinic)
-            if self.instance:
-                conflito = conflito.exclude(pk=self.instance.pk)
-
-            if conflito.exists():
-                raise serializers.ValidationError(
-                    'Este psicólogo já tem uma consulta agendada nesse horário.'
-                )
-        return data
 
     def validate(self, data):
         request = self.context.get('request')
@@ -596,7 +564,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         for appointment in queryset.only('scheduled_at', 'duration_minutes'):
             if appointment.ends_at > scheduled_at:
                 raise serializers.ValidationError(
-                    'O profissional ja possui consulta sobreposta neste horario.'
+                    'Este psicólogo já tem uma consulta agendada nesse horário.'
                 )
 
 
