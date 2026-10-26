@@ -1,6 +1,14 @@
+import re
+from datetime import timedelta
+
+from django.conf import settings
+from django.core import mail
+from django.core.cache import cache
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.clinics.models import Clinic
 
@@ -390,3 +398,148 @@ class ClinicPatientListTests(APITestCase):
         self.assertEqual(paginas, 2)
         self.assertEqual(len(vistos), 25, 'houve pagina repetida ou perdida')
         self.assertEqual(set(vistos), criados)
+
+
+class InviteOnlyRegistrationTests(APITestCase):
+    """
+    R04 / RN02: nao existe cadastro publico. So o administrador cria usuarios,
+    por convite enviado por e-mail, e o convidado define a propria senha.
+    """
+
+    def setUp(self):
+        cache.clear()  # zera o throttle de login entre os testes
+        self.clinic = Clinic.objects.create(name='Clinica Convite')
+        self.admin = User.objects.create_user(
+            email='admin.convite@example.com',
+            password='SenhaTeste123',
+            full_name='Admin',
+            role=User.Role.ADMIN,
+            clinic=self.clinic,
+        )
+        psicologo_user = User.objects.create_user(
+            email='psi.convite@example.com',
+            password='SenhaTeste123',
+            full_name='Psicologo',
+            role=User.Role.PROFESSIONAL,
+            clinic=self.clinic,
+        )
+        self.psicologo = ProfessionalProfile.objects.create(user=psicologo_user, crp='CRP-CV')
+
+    def test_cadastro_publico_continua_desativado(self):
+        response = self.client.post(
+            '/api/auth/register/',
+            {
+                'email': 'intruso@example.com',
+                'password': 'SenhaTeste123',
+                'full_name': 'Intruso',
+                'role': 'patient',
+            },
+            format='json',
+        )
+
+        self.assertGreaterEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(email='intruso@example.com').exists())
+
+    def test_convite_do_admin_cria_o_usuario_e_permite_definir_a_senha(self):
+        self.client.force_authenticate(user=self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse('admin-patient-create'),
+                {
+                    'email': 'convidado@example.com',
+                    'full_name': 'Convidado',
+                    'assigned_professional': str(self.psicologo.id),
+                },
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        convidado = User.objects.get(email='convidado@example.com')
+        self.assertEqual(convidado.clinic_id, self.clinic.id)
+        self.assertFalse(convidado.has_usable_password())
+
+        # O link do e-mail traz uid e token para a tela de definir senha.
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['convidado@example.com'])
+        link = re.search(r'uid=([^&\s]+)&token=([^&\s]+)', mail.outbox[0].body)
+        self.assertIsNotNone(link)
+
+        self.client.force_authenticate(user=None)
+        confirmado = self.client.post(
+            reverse('password-invite-confirm'),
+            {'uid': link.group(1), 'token': link.group(2), 'password': 'SenhaConvidado987'},
+            format='json',
+        )
+        self.assertEqual(confirmado.status_code, status.HTTP_200_OK, confirmado.data)
+
+        login = self.client.post(
+            reverse('login'),
+            {'email': 'convidado@example.com', 'password': 'SenhaConvidado987'},
+            format='json',
+        )
+        self.assertEqual(login.status_code, status.HTTP_200_OK, login.data)
+
+    def test_paciente_e_psicologo_nao_criam_usuarios(self):
+        paciente = User.objects.create_user(
+            email='paciente.cv@example.com',
+            password='SenhaTeste123',
+            full_name='Paciente',
+            role=User.Role.PATIENT,
+            clinic=self.clinic,
+        )
+        for usuario in (paciente, self.psicologo.user):
+            with self.subTest(role=usuario.role):
+                self.client.force_authenticate(user=usuario)
+                response = self.client.post(
+                    reverse('admin-patient-create'),
+                    {
+                        'email': f'novo-{usuario.role}@example.com',
+                        'full_name': 'Novo',
+                        'send_invite': False,
+                        'assigned_professional': str(self.psicologo.id),
+                    },
+                    format='json',
+                )
+                self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class SessionTokenTests(APITestCase):
+    """RN05 / R03: token de 15 minutos, e cada renovacao invalida a anterior."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            email='sessao@example.com',
+            password='SenhaTeste123',
+            full_name='Sessao',
+            role=User.Role.ADMIN,
+            clinic=Clinic.objects.create(name='Clinica Sessao'),
+        )
+
+    def test_access_token_expira_em_15_minutos(self):
+        self.assertEqual(
+            settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'], timedelta(minutes=15)
+        )
+
+    def test_token_vencido_e_recusado(self):
+        token = AccessToken.for_user(self.user)
+        token.set_exp(from_time=timezone.now() - timedelta(minutes=16))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        self.assertEqual(self.client.get(reverse('me')).status_code, 401)
+
+    def test_renovacao_invalida_o_refresh_anterior(self):
+        login = self.client.post(
+            reverse('login'),
+            {'email': 'sessao@example.com', 'password': 'SenhaTeste123'},
+            format='json',
+        )
+        antigo = login.data['refresh']
+
+        primeira = self.client.post(reverse('token_refresh'), {'refresh': antigo}, format='json')
+        self.assertEqual(primeira.status_code, status.HTTP_200_OK)
+        self.assertNotEqual(primeira.data['refresh'], antigo)
+
+        # Duas telas renovando com o mesmo refresh: a segunda e recusada.
+        reuso = self.client.post(reverse('token_refresh'), {'refresh': antigo}, format='json')
+        self.assertEqual(reuso.status_code, status.HTTP_401_UNAUTHORIZED)

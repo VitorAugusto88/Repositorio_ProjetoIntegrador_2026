@@ -138,11 +138,26 @@ quando o profissional for outro.
 
 ## Endpoints da Fase 1
 
+> **Referência única da API:** a documentação gerada automaticamente a partir do
+> código, em `/api/docs/swagger/` (ou `/api/docs/redoc/`; o schema bruto fica em
+> `/api/schema/`). Se este README e o Swagger discordarem, vale o Swagger.
+
+### Cadastro de usuários (não existe cadastro público)
+
+Não há rota de autocadastro. **Somente o administrador da clínica cria
+usuários.** O sistema envia um convite por e-mail e o convidado define a
+própria senha pelo link.
+
+| Método | URL | Descrição | Auth? |
+|--------|-----|-----------|-------|
+| POST | `/api/auth/admin/users/patients/` | Admin cria paciente e envia convite | Admin |
+| POST | `/api/auth/admin/users/professionals/` | Admin cria psicólogo e envia convite | Admin |
+| POST | `/api/auth/password/invite/confirm/` | Convidado define a senha (`uid`, `token`, `password`) | Não |
+
 ### Autenticação
 
 | Método | URL | Descrição | Auth? |
 |--------|-----|-----------|-------|
-| POST | `/api/auth/register/` | Cadastro de paciente | Não |
 | POST | `/api/auth/login/` | Login — retorna tokens JWT | Não |
 | POST | `/api/auth/refresh/` | Renova o access token | Não |
 | GET | `/api/auth/me/` | Dados do usuário logado | Sim |
@@ -174,6 +189,9 @@ Resposta:
 O access token já vem com `role`, `full_name` e `clinic_id` embutidos.
 O frontend pode decodificar o JWT para saber qual interface mostrar.
 
+O access token expira em **15 minutos** e é renovado automaticamente pelo
+aplicativo. Cada renovação devolve um refresh novo e invalida o anterior.
+
 ---
 
 ## Para os colegas de frontend
@@ -184,7 +202,8 @@ http://localhost:8000/api/
 ```
 
 ### Autenticação
-Todas as rotas (exceto login e register) exigem o header:
+Todas as rotas (exceto login, renovação de token, recuperação de senha e
+confirmação de convite) exigem o header:
 ```
 Authorization: Bearer <access_token>
 ```

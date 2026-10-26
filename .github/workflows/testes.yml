@@ -1,0 +1,44 @@
+# R05: a bateria de testes roda a cada envio de codigo, sem depender da maquina
+# de nenhum integrante nem do banco em nuvem (config.settings_test usa SQLite
+# em memoria). O servico Redis atende os testes do R02 (apps.tests_redis_real).
+name: Testes do backend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      SECRET_KEY: chave-somente-para-testes
+      DEBUG: "False"
+      USE_S3_STORAGE: "False"
+      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_TEST_URL: redis://127.0.0.1:6379/15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Rodar a bateria
+        run: python manage.py test --settings=config.settings_test --noinput
