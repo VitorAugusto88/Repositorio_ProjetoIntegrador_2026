@@ -8,3 +8,7 @@ db.sqlite3
 *.egg-info/
 dist/
 .DS_Store
+
+# Testes ponta a ponta (Playwright)
+e2e.sqlite3
+e2e_media/
