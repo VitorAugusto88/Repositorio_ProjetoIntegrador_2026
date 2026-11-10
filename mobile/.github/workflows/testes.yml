@@ -1,0 +1,24 @@
+# R05: a bateria de testes do aplicativo roda a cada envio de codigo.
+name: Testes do aplicativo
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Rodar a bateria
+        run: npx vitest run

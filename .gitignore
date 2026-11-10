@@ -1,0 +1,19 @@
+# Documentos locais que não vão para o repositório
+# (avaliações, relatórios e laudos de teste, anotações)
+*.docx
+*.doc
+/*.pdf
+/docs/
+CLAUDE.md
+.claude/
+
+# Arquivos temporários do Word/Office (ficam abertos enquanto o documento está em uso)
+~$*
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Cada projeto (Back/, web/, mobile/) tem o próprio .gitignore
+# para venv, node_modules, .env etc.
