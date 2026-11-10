@@ -26,6 +26,19 @@ class CustomTokenObtainSerializer(TokenObtainPairSerializer):
         token['clinic_id'] = str(user.clinic_id) if user.clinic_id else None
         return token
 
+    def validate(self, attrs):
+        # O e-mail e gravado como o admin digitou no convite ("Maria@...").
+        # Sem isto, "maria@..." no login era recusado — a recuperacao de senha
+        # ja buscava por iexact, so o login diferenciava maiusculas.
+        email = (attrs.get(self.username_field) or '').strip()
+        cadastrado = (
+            User.objects.filter(email__iexact=email)
+            .values_list('email', flat=True)
+            .first()
+        )
+        attrs[self.username_field] = cadastrado or email
+        return super().validate(attrs)
+
 
 class UserSerializer(serializers.ModelSerializer):
     patient_profile_id = serializers.SerializerMethodField()

@@ -6,7 +6,7 @@ no banco ou no storage da nuvem que o .env de desenvolvimento aponta (R06).
 Aqui tudo fica local e descartavel: SQLite em arquivo, uploads em pasta
 propria, e-mail em memoria e channel layer em memoria.
 
-Uso (o Playwright faz isso sozinho, ver sistemaclinico-ui/playwright.config.ts):
+Uso (o Playwright faz isso sozinho, ver web/playwright.config.ts):
     python manage.py migrate --settings=config.settings_e2e
     python manage.py popular_e2e --settings=config.settings_e2e
     python manage.py runserver 8010 --settings=config.settings_e2e

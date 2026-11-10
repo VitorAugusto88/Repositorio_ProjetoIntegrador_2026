@@ -2,14 +2,12 @@ from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
 
 from apps.audit.models import AuditLog
 from apps.audit.services import (
@@ -68,19 +66,12 @@ class LoginView(TokenObtainPairView):
     throttle_scope = 'login'
 
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
         email = request.data.get('email', '')
-        if response.status_code == 200:
-            user = User.objects.filter(email__iexact=email).first()
-            log_audit_event(
-                action=AuditLog.Action.USER_LOGIN,
-                target_model='User',
-                target_id=str(user.id) if user else '',
-                target_repr=email,
-                request=request,
-                metadata={'email': email},
-            )
-        else:
+        try:
+            response = super().post(request, *args, **kwargs)
+        except AuthenticationFailed:
+            # O simplejwt LANCA a excecao em credencial invalida (nao devolve
+            # um 401 comum), entao a tentativa falha precisa ser registrada aqui.
             log_audit_event(
                 action=AuditLog.Action.USER_LOGIN_FAILED,
                 target_model='User',
@@ -89,34 +80,18 @@ class LoginView(TokenObtainPairView):
                 request=request,
                 metadata={'email': email},
             )
-        return response
+            raise
 
-
-class LogoutView(APIView):
-    """
-    POST /api/auth/logout/
-    Invalida o refresh token no servidor (blacklist) e registra o logout em auditoria.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        refresh_token = request.data.get('refresh')
-        if refresh_token:
-            try:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-            except TokenError:
-                pass
-
+        user = User.objects.filter(email__iexact=email).first()
         log_audit_event(
-            action=AuditLog.Action.USER_LOGOUT,
+            action=AuditLog.Action.USER_LOGIN,
             target_model='User',
-            target_id=str(request.user.id),
-            target_repr=request.user.email,
+            target_id=str(user.id) if user else '',
+            target_repr=email,
             request=request,
-            metadata={'email': request.user.email},
+            metadata={'email': email},
         )
-        return Response({'detail': 'Logout realizado com sucesso.'})
+        return response
 
 
 class LogoutView(APIView):
@@ -139,6 +114,15 @@ class LogoutView(APIView):
         except TokenError:
             # Token ja expirado/invalido: a sessao esta encerrada de qualquer forma.
             pass
+
+        log_audit_event(
+            action=AuditLog.Action.USER_LOGOUT,
+            target_model='User',
+            target_id=str(request.user.id),
+            target_repr=request.user.email,
+            request=request,
+            metadata={'email': request.user.email},
+        )
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
