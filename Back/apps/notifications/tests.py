@@ -19,7 +19,7 @@ from apps.chat.models import ChatMessage, Presence
 from apps.clinics.models import Clinic
 
 from .models import DeviceToken, Notification
-from .services import notify_appointment_reminder, notify_new_chat_message
+from .services import notify_appointment_reminder
 from .tasks import send_firebase_push_notification
 
 

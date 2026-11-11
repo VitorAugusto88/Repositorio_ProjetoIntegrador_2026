@@ -12,7 +12,6 @@ import { useTheme } from "../contexts/ThemeContext";
 import type { RoomApiItem } from "../services/api";
 import { describeRoomStatus, isRoomSelectable } from "../services/rooms";
 
-// ─── Seletor OPCIONAL de sala ────────────────────────────────────────────────
 //
 // Usado só nos agendamentos de administrador e de psicólogo — o fluxo do
 // paciente não escolhe sala. Salas ocupadas no intervalo pedido aparecem

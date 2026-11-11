@@ -88,7 +88,6 @@ export default function ClinicInfoScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back-outline" size={22} color="#fff" />
@@ -112,7 +111,6 @@ export default function ClinicInfoScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Identidade */}
           <View style={styles.identityCard}>
             <View style={styles.identityIcon}>
               <Ionicons name="business" size={26} color={colors.primary} />
@@ -124,7 +122,6 @@ export default function ClinicInfoScreen() {
             </View>
           </View>
 
-          {/* Contato e endereço */}
           <View style={styles.card}>
             <Row label="Endereço" value={clinic.address || "Não informado"} />
             <View style={styles.divider} />
@@ -153,7 +150,7 @@ export default function ClinicInfoScreen() {
   );
 }
 
-// ─── Linha de informação (read-only, opcionalmente clicável) ──────────────────
+// Linha de informação (read-only, opcionalmente clicável)
 const Row = ({
   label,
   value,

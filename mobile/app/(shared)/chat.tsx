@@ -63,7 +63,7 @@ import {
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
 
-// ── Estilo WhatsApp — fixo, não muda com a paleta da clínica ──
+// Estilo WhatsApp — fixo, não muda com a paleta da clínica
 const WA_BG = "#ece5dd"; // fundo bege do thread
 const WA_OUT = "#d9fdd3"; // bolha enviada (verde claro)
 const WA_IN = "#ffffff"; // bolha recebida (branca)
@@ -72,7 +72,6 @@ const WA_META = "#667781"; // horário / checks
 
 const DESKTOP_BREAKPOINT = 900;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatHour = (iso: string) =>
   new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
@@ -105,7 +104,6 @@ const dashboardForRole = (role: string): string => {
   }
 };
 
-// ─── WS_BASE_URL ──────────────────────────────────────────────────────────────
 // Ordem de preferência:
 //   1. EXPO_PUBLIC_WS_URL (override explícito).
 //   2. Derivar da EXPO_PUBLIC_API_URL (http→ws, https→wss, remove /api, +/ws/chat).
@@ -134,7 +132,6 @@ const deriveWsBaseUrl = (): string => {
 
 const WS_BASE_URL = deriveWsBaseUrl();
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Conversation {
   contactUserId: string; // user.id do outro lado — usado no WS e no envio REST
   contactName: string;
@@ -171,7 +168,6 @@ const mediaTypeOf = (t?: string): MessageType =>
         ? "file"
         : "text";
 
-// ─── Anexos aceitos ───────────────────────────────────────────────────────────
 // Mesmos tipos permitidos no módulo de documentos (PDF/DOC/DOCX) + todas as
 // imagens que o chat já aceitava (webp/gif inclusive, por isso o "image/*").
 // O backend revalida extensão, conteúdo e tamanho.
@@ -247,35 +243,17 @@ interface Contact {
   initials: string;
 }
 
-// ─── Componente de fundo decorativo ──────────────────────────────────────────
-// Componente-irmão no escopo do módulo: monta seu próprio tema/estilos
-// memoizados (mesmo padrão de app/(auth)/login.tsx).
-const DecorativeBackground = () => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  return (
-    <>
-      <View style={styles.circle1} />
-      <View style={styles.circle2} />
-    </>
-  );
-};
-
-// ─── Tela principal ───────────────────────────────────────────────────────────
 export default function ChatScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  // Auth
   const [myUserId, setMyUserId] = useState<string>("");
   const [myRole, setMyRole] = useState<string>("");
 
-  // Dados
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeContactId, setActiveContactId] = useState<string>("");
 
-  // UI
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false); // o outro lado está digitando
@@ -285,25 +263,21 @@ export default function ChatScreen() {
   // Áudio (gravação estilo WhatsApp) — implementação por plataforma
   const recorder = useChatAudioRecorder();
 
-  // Modal novo contato
   const [contactModalVisible, setContactModalVisible] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
 
-  // WebSocket
   const wsRef = useRef<WebSocket | null>(null);
   const wsContactRef = useRef<string>(""); // contactId da conexão WS ativa
   // Ref para sempre chamar a versão atual de handleWsFrame sem stale closure
   const handleWsFrameRef = useRef<(frame: any, contactId: string) => void>(() => {});
 
-  // Animação de entrada
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   const scrollRef = useRef<ScrollView>(null);
 
-  // ─── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
     const boot = async () => {
       setLoading(true);
@@ -319,7 +293,6 @@ export default function ChatScreen() {
         setMyUserId(me.id);
         setMyRole(me.role || "patient");
 
-        // Carregar conversas existentes
         const convResult = await getConversations();
         if (convResult.ok && Array.isArray(convResult.data)) {
           const mapped: Conversation[] = convResult.data.map((item: any) => {
@@ -384,7 +357,7 @@ export default function ChatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Carregar mensagens REST + abrir WS quando activeContactId muda ─────────
+  // Carregar mensagens REST + abrir WS quando activeContactId muda
   useEffect(() => {
     if (!activeContactId || !myUserId) return;
 
@@ -430,7 +403,6 @@ export default function ChatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeContactId, myUserId]);
 
-  // ─── WebSocket ──────────────────────────────────────────────────────────────
   const disconnectWs = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.onclose = null;
@@ -468,7 +440,6 @@ export default function ChatScreen() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Conexão estabelecida
       };
 
       ws.onmessage = (event) => {
@@ -476,7 +447,6 @@ export default function ChatScreen() {
           const frame = JSON.parse(event.data as string);
           handleWsFrameRef.current(frame, contactId);
         } catch {
-          // ignora frames inválidos
         }
       };
 
@@ -499,7 +469,6 @@ export default function ChatScreen() {
         }, 3000);
       };
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [disconnectWs],
   );
 
@@ -652,7 +621,6 @@ export default function ChatScreen() {
     return () => clearInterval(id);
   }, [activeContactId, myUserId]);
 
-  // ─── Enviar mensagem ────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || !activeContactId) return;
@@ -697,7 +665,6 @@ export default function ChatScreen() {
       })();
 
     if (!wsSent) {
-      // Fallback REST
       const result = await sendChatMessage(activeContactId, text);
       if (!result.ok) {
         showAlert("Erro", result.error || "Não foi possível enviar.");
@@ -717,7 +684,6 @@ export default function ChatScreen() {
     }
   }, [draft, activeContactId, myUserId]);
 
-  // ─── Enviar indicador de typing ─────────────────────────────────────────────
   const handleDraftChange = useCallback((text: string) => {
     setDraft(text);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -730,7 +696,7 @@ export default function ChatScreen() {
     }
   }, []);
 
-  // ─── Enviar anexo (imagem, áudio ou documento) ──────────────────────────────
+  // Enviar anexo (imagem, áudio ou documento)
   const sendAttachment = useCallback(
     async (
       file: { uri: string; name: string; type: string },
@@ -789,7 +755,7 @@ export default function ChatScreen() {
     [activeContactId, myUserId],
   );
 
-  // ─── Selecionar anexo (imagem ou documento) ─────────────────────────────────
+  // Selecionar anexo (imagem ou documento)
   const handlePickAttachment = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -827,7 +793,7 @@ export default function ChatScreen() {
     }
   }, [sendAttachment]);
 
-  // ─── Gravação de áudio (start / enviar / cancelar) ──────────────────────────
+  // Gravação de áudio (start / enviar / cancelar)
   const handleStartRecording = useCallback(async () => {
     try {
       await recorder.start();
@@ -861,7 +827,7 @@ export default function ChatScreen() {
     await recorder.cancel();
   }, [recorder]);
 
-  // ─── Abrir modal de novo contato ────────────────────────────────────────────
+  // Abrir modal de novo contato
   const handleOpenNewContact = useCallback(async () => {
     setContactSearch("");
     setContactModalVisible(true);
@@ -884,7 +850,6 @@ export default function ChatScreen() {
       setContactsLoading(false);
     }
   }, []);
-  // ─── Selecionar conversa ────────────────────────────────────────────────────
   const handleSelectConversation = useCallback(
     (contactId: string) => {
       if (contactId === activeContactId) return;
@@ -898,7 +863,6 @@ export default function ChatScreen() {
     [activeContactId, conversations],
   );
 
-  // ─── Apagar mensagem / conversa ──────────────────────────────────────────────
   const removeMessageFromState = useCallback((messageId: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
   }, []);
@@ -973,11 +937,10 @@ export default function ChatScreen() {
     });
   }, [activeContactId, conversations]);
 
-  // ─── Scroll automático ───────────────────────────────────────────────────────
   const scrollToBottom = (animated: boolean) => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated }), 100);
   };
-  // ─── Iniciar conversa com contato selecionado ────────────────────────────────
+  // Iniciar conversa com contato selecionado
   const handleStartConversation = useCallback(
     (contact: Contact) => {
       setContactModalVisible(false);
@@ -1009,7 +972,6 @@ export default function ChatScreen() {
     [conversations, handleSelectConversation],
   );
 
-  // ─── Derived state ───────────────────────────────────────────────────────────
   const activeConversation = useMemo(
     () => conversations.find((c) => c.contactUserId === activeContactId),
     [conversations, activeContactId],
@@ -1057,7 +1019,6 @@ export default function ChatScreen() {
   const showInbox = isDesktop || !activeContactId;
   const showThread = isDesktop || !!activeContactId;
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.loadingScreen}>
@@ -1074,7 +1035,6 @@ export default function ChatScreen() {
     >
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -1193,11 +1153,9 @@ export default function ChatScreen() {
           </View>
         )}
 
-        {/* ── Área de mensagens ────────────────────────────────────────────── */}
         {showThread &&
           (activeConversation ? (
           <View style={styles.chatCard}>
-            {/* Chat header */}
             <View style={styles.chatHeader}>
               <View style={styles.chatHeaderLeft}>
                 {!isDesktop && (
@@ -1272,7 +1230,6 @@ export default function ChatScreen() {
               </View>
             </View>
 
-            {/* Mensagens */}
             <ScrollView
               ref={scrollRef}
               style={styles.msgScroll}
@@ -1458,7 +1415,6 @@ export default function ChatScreen() {
               )}
             </ScrollView>
 
-            {/* Composer */}
             {recorder.isRecording ? (
               <View style={styles.composer}>
                 <TouchableOpacity
@@ -1550,7 +1506,6 @@ export default function ChatScreen() {
             style={styles.modalSheet}
             onPress={() => {}}
           >
-            {/* Handle */}
             <View style={styles.modalHandle} />
 
             <View style={styles.modalHeader}>
@@ -1563,7 +1518,6 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Busca */}
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={16} color="#7ba897" />
               <TextInput
@@ -1581,7 +1535,6 @@ export default function ChatScreen() {
               )}
             </View>
 
-            {/* Lista */}
             {contactsLoading ? (
               <View style={styles.modalLoading}>
                 <ActivityIndicator color={colors.primary} />
@@ -1656,7 +1609,6 @@ export default function ChatScreen() {
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   screen: {
@@ -1676,29 +1628,6 @@ const createStyles = (colors: ThemeColors) =>
     fontWeight: "600",
   },
 
-  // Decoração
-  circle1: {
-    position: "absolute",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: "#27795f",
-    top: -110,
-    right: -70,
-    opacity: 0.45,
-  },
-  circle2: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: colors.primaryStrong,
-    top: -55,
-    left: -70,
-    opacity: 0.28,
-  },
-
-  // Header
   header: {
     paddingTop: 56,
     paddingBottom: 22,
@@ -1749,7 +1678,6 @@ const createStyles = (colors: ThemeColors) =>
     backgroundColor: "rgba(255,255,255,0.3)",
   },
 
-  // Conteúdo animado
   content: {
     flex: 1,
     padding: 16,
@@ -1860,7 +1788,6 @@ const createStyles = (colors: ThemeColors) =>
   },
   unreadBadgeText: { color: colors.white, fontSize: 11, fontWeight: "800" },
 
-  // Card de chat
   chatCard: {
     flex: 1,
     backgroundColor: colors.white,
@@ -1918,7 +1845,6 @@ const createStyles = (colors: ThemeColors) =>
     justifyContent: "center",
   },
 
-  // Presence pill
   presencePill: {
     flexDirection: "row",
     alignItems: "center",
@@ -1936,7 +1862,6 @@ const createStyles = (colors: ThemeColors) =>
   presenceTextOnline: { color: "#2d9c67" },
   presenceTextOffline: { color: "#7b8d85" },
 
-  // Mensagens
   msgScroll: { flex: 1, backgroundColor: WA_BG },
   msgContent: {
     paddingHorizontal: 18,
@@ -2006,7 +1931,6 @@ const createStyles = (colors: ThemeColors) =>
   msgTimeIn: { color: WA_META },
   msgTimeOut: { color: WA_META },
 
-  // Typing indicator
   typingBubble: { paddingVertical: 14, paddingHorizontal: 18 },
   typingDots: { flexDirection: "row", gap: 5, alignItems: "center" },
   dot: {
@@ -2019,7 +1943,6 @@ const createStyles = (colors: ThemeColors) =>
   dot2: { marginTop: -4 },
   dot3: {},
 
-  // Composer
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -2048,7 +1971,6 @@ const createStyles = (colors: ThemeColors) =>
     alignItems: "center",
     justifyContent: "center",
   },
-  sendBtnDisabled: { backgroundColor: "#8fbbaa" },
 
   // Botão de anexo (imagem ou documento)
   attachBtn: {
@@ -2159,7 +2081,6 @@ const createStyles = (colors: ThemeColors) =>
     justifyContent: "center",
   },
 
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(10, 35, 28, 0.45)",
@@ -2204,7 +2125,6 @@ const createStyles = (colors: ThemeColors) =>
     justifyContent: "center",
   },
 
-  // Busca
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -2224,7 +2144,6 @@ const createStyles = (colors: ThemeColors) =>
     paddingVertical: 0,
   },
 
-  // Lista de contatos
   modalList: {
     paddingHorizontal: 16,
   },

@@ -39,33 +39,6 @@ def is_same_clinic(user, obj):
     return user_clinic_id is not None and get_object_clinic_id(obj) == user_clinic_id
 
 
-class IsAdminOrSelf(BasePermission):
-    """Permite acesso ao proprio objeto ou a admins da mesma clinica."""
-
-    def has_permission(self, request, view):
-        return request.user.is_authenticated
-
-    def has_object_permission(self, request, view, obj):
-        user = request.user
-        if user.is_superuser:
-            return True
-
-        if hasattr(obj, 'user'):
-            if obj.user_id == user.id:
-                return True
-            if user.is_admin:
-                return is_same_clinic(user, obj)
-            return False
-
-        if obj == user:
-            return True
-
-        if user.is_admin:
-            return is_same_clinic(user, obj)
-
-        return False
-
-
 class IsProfessionalOrAdmin(BasePermission):
     """Apenas psicologos e admins."""
 
@@ -91,16 +64,6 @@ class IsPlatformAdmin(BasePermission):
 
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.is_superuser
-
-
-class IsSameClinic(BasePermission):
-    """Garante que o usuario so acessa dados da propria clinica."""
-
-    def has_permission(self, request, view):
-        return request.user.is_authenticated
-
-    def has_object_permission(self, request, view, obj):
-        return is_same_clinic(request.user, obj)
 
 
 class IsPatientProfileInSameClinic(BasePermission):

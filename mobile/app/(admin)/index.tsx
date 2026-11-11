@@ -24,7 +24,7 @@ import {
 } from "../../services/api";
 import { confirmAction } from "../../services/confirm";
 
-// ─── Cores semânticas fixas (categorias de atalho, não mudam com a paleta) ────
+// Cores semânticas fixas (categorias de atalho, não mudam com a paleta)
 const BLUE = "#2d6cdf";
 const BLUE_LIGHT = "#eaf1ff";
 const ORANGE = "#c46a1a";
@@ -47,7 +47,6 @@ const CARD_SHADOW = {
   elevation: 2,
 } as const;
 
-// ─── Tipagens ─────────────────────────────────────────────────────────────────
 interface ClinicStats {
   total_appointments: number;
   completed_appointments: number;
@@ -56,7 +55,6 @@ interface ClinicStats {
   total_professionals: number;
 }
 
-// ─── Atalhos administrativos ──────────────────────────────────────────────────
 // GREEN/GREEN_LIGHT (marca da clínica) entram aqui como parâmetros porque
 // mudam conforme a paleta escolhida pelo admin — as demais cores são fixas.
 const buildQuickActions = (green: string, greenLight: string) => [
@@ -324,7 +322,6 @@ export default function AdminDashboardScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Barra de identidade ── */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <View style={styles.identity}>
@@ -395,7 +392,6 @@ export default function AdminDashboardScreen() {
               { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            {/* ── Resumo da clínica ── */}
             <Text style={styles.sectionTitle}>Resumo da clínica</Text>
             <View style={styles.metricsGrid}>
               {metrics.map((metric) => (
@@ -421,7 +417,6 @@ export default function AdminDashboardScreen() {
               ))}
             </View>
 
-            {/* ── Atalhos ── */}
             <Text style={styles.sectionTitle}>Atalhos</Text>
             <View style={styles.actionsGrid}>
               {QUICK_ACTIONS.map((action) => (
@@ -594,7 +589,6 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: 12,
       marginTop: 4,
     },
-    // KPIs
     metricsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -631,7 +625,6 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
       fontWeight: "600",
     },
-    // Atalhos
     actionsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",

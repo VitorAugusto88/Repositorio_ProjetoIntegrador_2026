@@ -17,7 +17,7 @@ import { getPsychologists, updateProfessionalProfile, ProfessionalApiItem } from
 import { ThemeColors } from '../../../constants/theme-palettes';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-// ─── Cores semânticas fixas (categoria "profissional", não muda com a paleta) ──
+// Cores semânticas fixas (categoria "profissional", não muda com a paleta)
 const ORANGE = '#c46a1a';
 const ORANGE_LIGHT = '#fef3e8';
 const RED = '#d95c5c';
@@ -207,7 +207,6 @@ export default function ProfessionalDetailScreen() {
       >
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
-          {/* ── Avatar + nome ── */}
           <View style={styles.profileCard}>
             <View style={styles.avatarLarge}>
               <Text style={styles.avatarText}>{initials}</Text>
@@ -242,7 +241,6 @@ export default function ProfessionalDetailScreen() {
             </View>
           </View>
 
-          {/* ── Dados de contato ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Dados de contato</Text>
             <InfoRow icon="mail-outline" label="E-mail" value={professional.user.email} />
@@ -252,7 +250,6 @@ export default function ProfessionalDetailScreen() {
             <InfoRow icon="time-outline" label="Cadastrado em" value={formatDate(professional.user.created_at)} />
           </View>
 
-          {/* ── Perfil clínico ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Perfil clínico</Text>
             <InfoRow icon="id-card-outline" label="CRP" value={professional.crp ?? '—'} />
@@ -275,7 +272,6 @@ export default function ProfessionalDetailScreen() {
             ) : null}
           </View>
 
-          {/* ── Edição do perfil clínico ── */}
           {editing ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Editar perfil clínico</Text>
@@ -366,7 +362,6 @@ export default function ProfessionalDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Ações rápidas ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Ações rápidas</Text>
             <TouchableOpacity

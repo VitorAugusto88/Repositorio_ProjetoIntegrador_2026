@@ -43,7 +43,7 @@ interface SimpleUser {
   label: string;
 }
 
-// ─── Seletor de lista (igual ao do admin) ─────────────────────────────────────
+// Seletor de lista (igual ao do admin)
 const Selector = ({
   label,
   items,
@@ -118,7 +118,6 @@ const Selector = ({
   );
 };
 
-// ─── Tela principal ───────────────────────────────────────────────────────────
 export default function PsychologistAgendarScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);

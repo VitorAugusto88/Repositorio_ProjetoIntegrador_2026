@@ -20,7 +20,6 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { getRouteForRole, login } from "../../services/api";
 import { registerForPushNotifications } from "../../services/push";
 
-// ─── Decorative Background ───────────────────────────────────────────────────
 // Componente-irmão declarado no escopo do módulo: monta seu próprio tema/estilos
 // memoizados em vez de depender de `styles` do componente pai (evita recriar
 // componentes memoizados a cada render, o que derrubaria o foco dos inputs).
@@ -36,7 +35,6 @@ const DecorativeBackground = () => {
   );
 };
 
-// ─── FloatingInput Types ─────────────────────────────────────────────────────
 interface FloatingInputProps {
   label: string;
   value: string;
@@ -54,7 +52,6 @@ interface FloatingInputProps {
   textContentType?: "emailAddress" | "password" | "none";
 }
 
-// ─── Floating Label Input ────────────────────────────────────────────────────
 const FloatingInput = ({
   label,
   value,
@@ -159,13 +156,11 @@ const FloatingInput = ({
 // Memoize FloatingInput para evitar re-renderizações desnecessárias no Android
 const MemoizedFloatingInput = React.memo(FloatingInput);
 
-// ─── Props & Types ────────────────────────────────────────────────────────────
 interface FormState {
   email: string;
   senha: string;
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function LoginScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -176,13 +171,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
 
-  // Ref mantido mas não usado para forçar foco (evita salto no Android)
   const senhaRef = useRef<TextInput>(null);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Comentado para Android - animações podem interferir com foco do input
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -198,7 +191,6 @@ export default function LoginScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  // Memoizar função set para evitar re-renderizações dos inputs
   const set = useCallback(
     (field: keyof FormState) => (val: string) => {
       setForm((prev) => ({ ...prev, [field]: val }));
@@ -207,7 +199,6 @@ export default function LoginScreen() {
     [],
   );
 
-  // Memoizar toggle de mostrar senha
   const toggleShowSenha = useCallback(() => {
     setShowSenha((v) => !v);
   }, []);
@@ -271,7 +262,6 @@ export default function LoginScreen() {
         nestedScrollEnabled={false}
         bounces={false}
       >
-        {/* Header */}
         <View style={[styles.header]}>
           <View style={styles.logoMark}>
             <Ionicons name="leaf-outline" size={26} color="#fff" />
@@ -283,7 +273,6 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {/* Card */}
         <View style={[styles.card]}>
           <MemoizedFloatingInput
             label="E-mail"
@@ -311,7 +300,6 @@ export default function LoginScreen() {
             inputRef={senhaRef}
           />
 
-          {/* Esqueci minha senha */}
           <TouchableOpacity
             style={styles.forgotBtn}
             onPress={() => router.push("/esqueci-senha" as any)}
@@ -319,7 +307,6 @@ export default function LoginScreen() {
             <Text style={styles.forgotText}>Esqueci minha senha</Text>
           </TouchableOpacity>
 
-          {/* API Error */}
           {apiError ? (
             <View style={styles.apiErrorBox}>
               <Ionicons
@@ -332,7 +319,6 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* Submit */}
           <TouchableOpacity
             style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
             onPress={handleLogin}
@@ -346,43 +332,6 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* {__DEV__ && (
-            <>
-              <TouchableOpacity
-                style={styles.demoBtn}
-                onPress={() => router.replace("/homep")}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="flash-outline" size={18} color={colors.primary} />
-                <Text style={styles.demoBtnText}>Entrar em modo demo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.adminBtn}
-                onPress={() => router.replace("/(admin)")}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={18}
-                  color={colors.primaryStrong}
-                />
-                <Text style={styles.adminBtnText}>Entrar como admin</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.psychologistBtn}
-                onPress={() => router.replace("/dashboardP")}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="medkit-outline" size={18} color="#2d6cdf" />
-                <Text style={styles.psychologistBtnText}>
-                  Entrar como psicólogo
-                </Text>
-              </TouchableOpacity>
-            </>
-          )} */}
-
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
@@ -390,7 +339,6 @@ export default function LoginScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     screen: {
@@ -413,7 +361,6 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: "center",
     },
 
-    // Decorative
     circle1: {
       position: "absolute",
       width: 260,
@@ -445,7 +392,6 @@ const createStyles = (colors: ThemeColors) =>
       left: 20,
     },
 
-    // Header
     header: {
       alignItems: "center",
       marginBottom: 32,
@@ -486,7 +432,6 @@ const createStyles = (colors: ThemeColors) =>
       textAlign: "center",
     },
 
-    // Card
     card: {
       backgroundColor: colors.white,
       borderRadius: 24,
@@ -501,7 +446,6 @@ const createStyles = (colors: ThemeColors) =>
       elevation: 6,
     },
 
-    // Input
     inputWrapper: {
       marginBottom: 14,
     },
@@ -555,7 +499,6 @@ const createStyles = (colors: ThemeColors) =>
       marginLeft: 4,
     },
 
-    // Forgot password
     forgotBtn: {
       alignSelf: "flex-end",
       marginBottom: 8,
@@ -567,7 +510,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "600",
     },
 
-    // API Error
     apiErrorBox: {
       flexDirection: "row",
       alignItems: "center",
@@ -585,7 +527,6 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
     },
 
-    // Button
     primaryBtn: {
       backgroundColor: colors.primary,
       borderRadius: 14,
@@ -608,87 +549,5 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "700",
       letterSpacing: 0.3,
     },
-    demoBtn: {
-      marginTop: 12,
-      height: 52,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      borderColor: "#cfe7dc",
-      backgroundColor: "#f8fdfb",
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    demoBtnText: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: "700",
-    },
-    adminBtn: {
-      marginTop: 10,
-      height: 52,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      borderColor: "#b9dccd",
-      backgroundColor: "#eef8f3",
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    adminBtnText: {
-      color: colors.primaryStrong,
-      fontSize: 15,
-      fontWeight: "700",
-    },
-    psychologistBtn: {
-      marginTop: 10,
-      height: 52,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      borderColor: "#cddff8",
-      backgroundColor: "#f3f8ff",
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    psychologistBtnText: {
-      color: "#2d6cdf",
-      fontSize: 15,
-      fontWeight: "700",
-    },
 
-    // Divider
-    dividerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginVertical: 20,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: "#e0f0e8",
-    },
-    dividerText: {
-      marginHorizontal: 12,
-      color: "#9bbfb0",
-      fontSize: 13,
-      fontWeight: "500",
-    },
-
-    // Register link
-    registerLink: {
-      alignItems: "center",
-      paddingVertical: 4,
-    },
-    registerLinkText: {
-      fontSize: 14,
-      color: "#6b9e8a",
-    },
-    registerLinkBold: {
-      color: colors.primary,
-      fontWeight: "700",
-    },
   });

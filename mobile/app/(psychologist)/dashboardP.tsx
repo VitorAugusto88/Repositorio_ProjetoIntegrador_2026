@@ -24,7 +24,7 @@ import {
 } from "../../services/api";
 import { confirmAction } from "../../services/confirm";
 
-// ─── Cores semânticas fixas (categorias de atalho, não mudam com a paleta) ────
+// Cores semânticas fixas (categorias de atalho, não mudam com a paleta)
 const BLUE = "#2d6cdf";
 const BLUE_LIGHT = "#eaf1ff";
 const ORANGE = "#c46a1a";
@@ -178,14 +178,13 @@ export default function PsychologistDashboardScreen() {
           showAlert("Erro", meResult.error || "Erro ao carregar perfil.");
         }
 
-        // Fetch summary
         const summaryResult = await getProfessionalSummary();
         if (summaryResult.ok && summaryResult.data) {
           setSummary(summaryResult.data);
         } else {
           showAlert("Erro", summaryResult.error || "Erro ao carregar resumo.");
         }
-      } catch (error) {
+      } catch {
         showAlert("Erro", "Erro inesperado ao carregar dados.");
       } finally {
         setLoading(false);
@@ -275,7 +274,6 @@ export default function PsychologistDashboardScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Barra de identidade ── */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <View style={styles.identity}>
@@ -344,7 +342,6 @@ export default function PsychologistDashboardScreen() {
               { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            {/* ── Resumo do dia ── */}
             <Text style={styles.sectionTitle}>Resumo do dia</Text>
             <View style={styles.kpiBanner}>
               <View style={[styles.kpiIcon, { backgroundColor: colors.primaryTint }]}>
@@ -358,7 +355,6 @@ export default function PsychologistDashboardScreen() {
               </View>
             </View>
 
-            {/* ── Próxima consulta ── */}
             <Text style={styles.sectionTitle}>Próxima consulta</Text>
             <View style={styles.nextCard}>
               {proxima ? (
@@ -442,7 +438,6 @@ export default function PsychologistDashboardScreen() {
               )}
             </View>
 
-            {/* ── Atalhos ── */}
             <Text style={styles.sectionTitle}>Atalhos</Text>
             <View style={styles.actionsGrid}>
               {QUICK_ACTIONS.map((action) => (
@@ -614,7 +609,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
     marginTop: 4,
   },
-  // KPIs
   kpiBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -654,7 +648,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     fontWeight: "600",
   },
-  // Próxima consulta
   nextCard: {
     backgroundColor: colors.white,
     borderRadius: 18,
@@ -760,7 +753,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     fontWeight: "600",
   },
-  // Atalhos
   actionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -20,7 +20,7 @@ import { deleteAdminUser, getAdminUsers, getMe, toggleUserStatus } from '../../s
 import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// ─── Cores semânticas fixas (categorias de perfil/status, não mudam com a paleta) ─
+// Cores semânticas fixas (categorias de perfil/status, não mudam com a paleta)
 const BLUE = '#2d6cdf';
 const BLUE_LIGHT = '#eaf1ff';
 const ORANGE = '#c46a1a';
@@ -73,7 +73,6 @@ export default function AdminUsuariosScreen() {
   const [loading, setLoading] = useState(true);
   const [myId, setMyId] = useState<string | null>(null);
 
-  // Ações
   const [actionId, setActionId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -139,7 +138,6 @@ export default function AdminUsuariosScreen() {
     patient: users.filter(u => u.role === 'patient').length,
   }), [users]);
 
-  // ── Desativar / Reativar ────────────────────────────────────────────────────
   const handleToggle = (u: UserRow) => {
     const willDeactivate = u.is_active;
     confirmAction(
@@ -163,7 +161,7 @@ export default function AdminUsuariosScreen() {
     );
   };
 
-  // ── Excluir (com escolha de preservar dados clínicos) ───────────────────────
+  // Excluir (com escolha de preservar dados clínicos)
   const confirmDelete = async (preserveClinicalData: boolean) => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -220,7 +218,6 @@ export default function AdminUsuariosScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
-          {/* ── Resumo ── */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryValue}>{counts.total}</Text>
@@ -236,7 +233,6 @@ export default function AdminUsuariosScreen() {
             </View>
           </View>
 
-          {/* ── Nova ação ── */}
           <TouchableOpacity
             style={styles.newButton}
             onPress={() =>
@@ -252,7 +248,6 @@ export default function AdminUsuariosScreen() {
             <Text style={styles.newButtonText}>Cadastrar novo usuário</Text>
           </TouchableOpacity>
 
-          {/* ── Busca e filtros ── */}
           <View style={styles.searchCard}>
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -285,7 +280,6 @@ export default function AdminUsuariosScreen() {
             </View>
           </View>
 
-          {/* ── Lista ── */}
           <View style={styles.listHeader}>
             <Text style={styles.sectionTitle}>Lista de usuários</Text>
             <View style={styles.countBadge}>
@@ -558,7 +552,6 @@ const createStyles = (colors: ThemeColors) =>
     emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50, gap: 14 },
     emptyStateText: { fontSize: 15, fontWeight: '600', color: colors.textMuted },
 
-    // Modal
     modalOverlay: {
       flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 24,
     },

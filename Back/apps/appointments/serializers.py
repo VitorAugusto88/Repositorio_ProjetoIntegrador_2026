@@ -1,4 +1,3 @@
-# Serializers da Fase 2
 from datetime import timedelta
 
 from rest_framework import serializers

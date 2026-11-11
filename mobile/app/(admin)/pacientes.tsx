@@ -19,7 +19,7 @@ import type { PatientProfileApiItem } from '../../services/api';
 import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// ─── Cores semânticas fixas (categorias de status, não mudam com a paleta) ───
+// Cores semânticas fixas (categorias de status, não mudam com a paleta)
 const BLUE = '#2d6cdf';
 const BLUE_LIGHT = '#eaf1ff';
 const RED = '#d95c5c';
@@ -143,7 +143,6 @@ export default function AdminPacientesScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
-          {/* ── Resumo ── */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryValue}>{summary.total}</Text>
@@ -155,7 +154,6 @@ export default function AdminPacientesScreen() {
             </View>
           </View>
 
-          {/* ── Nova ação ── */}
           <TouchableOpacity
             style={styles.newButton}
             onPress={() => router.push('/(admin)/cadastrar-paciente')}
@@ -165,7 +163,6 @@ export default function AdminPacientesScreen() {
             <Text style={styles.newButtonText}>Cadastrar novo paciente</Text>
           </TouchableOpacity>
 
-          {/* ── Busca e filtros ── */}
           <View style={styles.searchCard}>
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -197,7 +194,6 @@ export default function AdminPacientesScreen() {
             </View>
           </View>
 
-          {/* ── Lista ── */}
           <View style={styles.listHeader}>
             <Text style={styles.sectionTitle}>Lista de pacientes</Text>
             <View style={styles.countBadge}>

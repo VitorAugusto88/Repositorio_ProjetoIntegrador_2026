@@ -42,7 +42,6 @@ interface SimpleUser {
   label: string;
 }
 
-// ─── Seletor de lista ─────────────────────────────────────────────────────────
 const Selector = ({
   label,
   items,
@@ -124,7 +123,6 @@ const Selector = ({
   );
 };
 
-// ─── Tela principal ───────────────────────────────────────────────────────────
 export default function AdminAgendarScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -406,7 +404,6 @@ export default function AdminAgendarScreen() {
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Data e horário</Text>
 
-            {/* Campos com calendário/relógio nativos */}
             <View style={styles.rowFields}>
               <View style={styles.halfField}>
                 <Text style={styles.fieldLabel}>Data *</Text>

@@ -3,7 +3,7 @@ import { Platform, StyleSheet, TextInput, TextStyle } from "react-native";
 import { ThemeColors } from "../constants/theme-palettes";
 import { useTheme } from "../contexts/ThemeContext";
 
-// ─── Campos de data e hora com o calendário/relógio CLÁSSICO ────────────────
+// Campos de data e hora com o calendário/relógio CLÁSSICO
 //
 // No web (alvo principal do app) usamos os inputs nativos do navegador
 // (`<input type="date">` e `<input type="time">`), que já abrem o calendário

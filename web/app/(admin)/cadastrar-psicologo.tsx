@@ -18,7 +18,7 @@ import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
 import { createProfessionalAsAdmin } from '../../services/api';
 
-// ─── Cores semânticas fixas (não mudam com a paleta) ──────────────────────────
+// Cores semânticas fixas (não mudam com a paleta)
 const BLUE_LIGHT = '#eaf1ff';
 const MAX_WIDTH = 1120;
 
@@ -145,7 +145,6 @@ export default function CadastrarPsicologoScreen() {
             </View>
           </View>
 
-          {/* Dados de acesso */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>
@@ -164,7 +163,6 @@ export default function CadastrarPsicologoScreen() {
             <TextInput style={styles.input} placeholder="(00) 00000-0000" placeholderTextColor="#94b3a6" value={form.phone} onChangeText={patch('phone')} keyboardType="phone-pad" />
           </View>
 
-          {/* Dados profissionais */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>
@@ -192,7 +190,6 @@ export default function CadastrarPsicologoScreen() {
             />
           </View>
 
-          {/* Duração da sessão */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>

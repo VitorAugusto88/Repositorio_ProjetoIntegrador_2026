@@ -26,7 +26,7 @@ import {
   uploadDocument,
 } from "../../services/api";
 
-// ─── Cores semânticas fixas (não mudam com a paleta) ──────────────────────────
+// Cores semânticas fixas (não mudam com a paleta)
 const BLUE = "#2d6cdf";
 const RED = "#d95c5c";
 const MAX_WIDTH = 1120;
@@ -40,7 +40,6 @@ const CARD_SHADOW = {
   elevation: 2,
 } as const;
 
-// ─── Tipos ─────────────────────────────────────────────────────────────────────
 interface DocItem {
   id: string;
   title: string;
@@ -79,7 +78,6 @@ const formatDate = (iso: string): string => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-// ─── Tela ──────────────────────────────────────────────────────────────────────
 // Documentos vinculados a pacientes são clínicos e ficam visíveis apenas ao
 // psicólogo responsável (tela (psychologist)/ficha.tsx). O secretário/admin só
 // enxerga e cadastra documentos avulsos (administrativos, sem paciente).
@@ -205,7 +203,6 @@ export default function AdminDocumentsScreen() {
               <Text style={styles.addBtnText}>Adicionar documento</Text>
             </TouchableOpacity>
 
-            {/* Busca */}
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={16} color={colors.placeholder} />
               <TextInput
@@ -222,7 +219,6 @@ export default function AdminDocumentsScreen() {
               )}
             </View>
 
-            {/* Lista */}
             {filtered.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="folder-open-outline" size={40} color="#b2dfcf" />
@@ -284,7 +280,6 @@ export default function AdminDocumentsScreen() {
         }}
       />
 
-      {/* Confirmação de exclusão */}
       <Modal
         visible={!!deleteTarget}
         transparent
@@ -330,7 +325,6 @@ export default function AdminDocumentsScreen() {
   );
 }
 
-// ─── Modal de upload ────────────────────────────────────────────────────────────
 // Sempre avulso: o secretário/admin não vincula documentos a pacientes por
 // aqui — documentos clínicos são cadastrados pelo psicólogo em sua própria
 // ficha do paciente.
@@ -413,7 +407,6 @@ function UploadModal({
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={styles.modalTitle}>Adicionar documento</Text>
 
-            {/* Título */}
             <Text style={styles.modalLabel}>Título</Text>
             <TextInput
               style={styles.modalInput}
@@ -423,7 +416,6 @@ function UploadModal({
               placeholderTextColor={colors.placeholder}
             />
 
-            {/* Tipo */}
             <Text style={styles.modalLabel}>Tipo</Text>
             <View style={styles.typeRow}>
               {UPLOAD_TYPES.map((t) => {
@@ -452,7 +444,6 @@ function UploadModal({
               })}
             </View>
 
-            {/* Arquivo */}
             <TouchableOpacity style={styles.filePicker} onPress={handlePick} activeOpacity={0.8}>
               <Ionicons name="cloud-upload-outline" size={26} color={colors.placeholder} />
               <Text style={styles.filePickerText}>
@@ -550,7 +541,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
   },
   deleteBtnText: { fontSize: 11.5, fontWeight: "700", color: RED },
-  // Modal upload
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalSheet: {
     backgroundColor: colors.white, borderTopLeftRadius: 26, borderTopRightRadius: 26,
@@ -593,7 +583,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: "center", justifyContent: "center", gap: 8,
   },
   confirmBtnText: { fontSize: 15, fontWeight: "700", color: colors.white },
-  // Confirmação exclusão
   confirmOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 30,
   },

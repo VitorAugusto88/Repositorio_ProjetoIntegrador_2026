@@ -20,7 +20,7 @@ import {
   ToastType,
 } from "../services/feedback";
 
-// ─── Aparência por tipo de toast ────────────────────────────────────────────
+// Aparência por tipo de toast
 // "success" acompanha a cor da marca da clínica; error/info são semânticas
 // (fixas) — não fazem sentido mudando de cor conforme a paleta escolhida.
 const getToastStyle = (
@@ -33,7 +33,7 @@ const getToastStyle = (
 
 const TOAST_DURATION = 3800; // ms até sumir sozinho
 
-// ─── Um toast individual (anima entrada, saída e auto-dismiss) ──────────────
+// Um toast individual (anima entrada, saída e auto-dismiss)
 function Toast({
   item,
   onDone,
@@ -95,7 +95,7 @@ function Toast({
   );
 }
 
-// ─── Estilo visual de cada botão do diálogo ─────────────────────────────────
+// Estilo visual de cada botão do diálogo
 // O botão "default" acompanha a marca da clínica; cancel/destructive são fixos.
 function buttonColors(style: ButtonStyle, colors: ThemeColors): { bg: string; text: string } {
   if (style === "cancel") return { bg: "#eef2f0", text: "#4c7f6d" };
@@ -103,7 +103,7 @@ function buttonColors(style: ButtonStyle, colors: ThemeColors): { bg: string; te
   return { bg: colors.primary, text: "#fff" };
 }
 
-// ─── Host global: escuta o módulo de feedback e renderiza tudo ──────────────
+// Host global: escuta o módulo de feedback e renderiza tudo
 export default function FeedbackHost() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -135,7 +135,6 @@ export default function FeedbackHost() {
 
   return (
     <>
-      {/* Toasts empilhados no topo */}
       <View style={styles.toastContainer} pointerEvents="box-none">
         {toasts.map((t) => (
           <Toast key={t.id} item={t} onDone={removeToast} />
@@ -193,7 +192,6 @@ export default function FeedbackHost() {
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    // Toasts
     toastContainer: {
       position: "absolute",
       top: Platform.OS === "web" ? 20 : 52,
@@ -228,7 +226,6 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 19,
     },
 
-    // Diálogo
     overlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.45)",

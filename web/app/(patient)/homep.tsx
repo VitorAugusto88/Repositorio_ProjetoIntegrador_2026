@@ -35,7 +35,6 @@ interface NextAppointment {
   avatar: string;
 }
 
-// ─── Shortcut Cards Data ──────────────────────────────────────────────────────
 // color/bg do item "Agendar Consulta" e "Meu Psicólogo" seguem a cor da marca
 // (mudam conforme a paleta); as demais são categorias fixas, sem relação com a marca.
 const buildShortcuts = (green: string, greenLight: string) => [
@@ -71,14 +70,6 @@ const buildShortcuts = (green: string, greenLight: string) => [
     bg: greenLight,
     route: "MyPsychologist",
   },
-  // {
-  //   id: "4",
-  //   label: "Documentos",
-  //   icon: "document-text-outline",
-  //   color: "#e67e22",
-  //   bg: "#fef3e8",
-  //   route: "Documents",
-  // },
   {
     id: "4",
     label: "Perfil",
@@ -97,7 +88,6 @@ const buildShortcuts = (green: string, greenLight: string) => [
   },
 ];
 
-// ─── Shortcut Card ────────────────────────────────────────────────────────────
 interface ShortcutCardProps {
   label: string;
   icon: string;
@@ -129,7 +119,6 @@ const ShortcutCard = ({
   );
 };
 
-// ─── Decorative Background ───────────────────────────────────────────────────
 const DecorativeBackground = () => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -141,7 +130,6 @@ const DecorativeBackground = () => {
   );
 };
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function HomeP() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -187,7 +175,7 @@ export default function HomeP() {
   const fetchAppointments = useCallback(async (silent = false) => {
     if (!silent) setLoadingAppointment(true);
     try {
-      // ── FIX BUG 1: carregar profissionais primeiro para montar o mapa UUID→nome
+      // carregar profissionais primeiro para montar o mapa UUID→nome
       const profsResult = await getPsychologists();
       const profMap: Record<string, string> = {};
       if (profsResult.ok && Array.isArray(profsResult.data)) {
@@ -213,7 +201,7 @@ export default function HomeP() {
             const date = scheduledAt.split("T")[0] ?? "";
             const time = scheduledAt.split("T")[1]?.slice(0, 5) ?? "";
 
-            // ── FIX BUG 1: resolver UUID → nome usando o mapa local
+            // resolver UUID → nome usando o mapa local
             const professionalId = item.professional ?? "";
             const professionalName = profMap[professionalId] || "Profissional";
 
@@ -300,7 +288,6 @@ export default function HomeP() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  // ─── FEATURE 1: Pull-to-refresh ───────────────────────────────────────────
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -326,7 +313,6 @@ export default function HomeP() {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <DecorativeBackground />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
@@ -373,7 +359,6 @@ export default function HomeP() {
           />
         }
       >
-        {/* ── Próxima Consulta ── */}
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         >
@@ -383,11 +368,9 @@ export default function HomeP() {
             <Text style={styles.emptyText}>Carregando próxima consulta...</Text>
           ) : nextAppointment ? (
             <View style={styles.appointmentCard}>
-              {/* Faixa lateral */}
               <View style={styles.appointmentAccent} />
 
               <View style={styles.appointmentContent}>
-                {/* Data e hora */}
                 <View style={styles.appointmentDateRow}>
                   <Ionicons name="calendar-outline" size={15} color={colors.primary} />
                   <Text style={styles.appointmentDate}>
@@ -403,7 +386,6 @@ export default function HomeP() {
 
                 <View style={styles.divider} />
 
-                {/* Profissional */}
                 <View style={styles.professionalRow}>
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
@@ -420,7 +402,6 @@ export default function HomeP() {
                   </View>
                 </View>
 
-                {/* Botão */}
                 <TouchableOpacity
                   style={styles.detailsBtn}
                   activeOpacity={0.8}
@@ -447,7 +428,6 @@ export default function HomeP() {
           )}
         </Animated.View>
 
-        {/* ── Atalhos ── */}
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         >
@@ -467,7 +447,6 @@ export default function HomeP() {
                     | "/agendamento"
                     | "/consultas"
                     | "/(shared)/chat"
-                    | "/documento"
                     | "/perfil"
                     | "/escolha"
                     | "/(shared)/ajuda"
@@ -475,7 +454,6 @@ export default function HomeP() {
                     Schedule: "/agendamento",
                     MyAppointments: "/consultas",
                     Chat: "/(shared)/chat",
-                    Documents: "/documento",
                     Profile: "/perfil",
                     MyPsychologist: "/escolha",
                     Help: "/(shared)/ajuda",
@@ -498,7 +476,6 @@ export default function HomeP() {
           </View>
         </Animated.View>
 
-        {/* ── Banner motivacional ── */}
         <Animated.View style={[styles.bannerCard, { opacity: fadeAnim }]}>
           <View style={styles.bannerTextBox}>
             <Text style={styles.bannerTitle}>Cuide da sua saúde mental 🌿</Text>
@@ -513,14 +490,12 @@ export default function HomeP() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.authBg,
   },
 
-  // Decorative
   circle1: {
     position: "absolute",
     width: 300,
@@ -542,7 +517,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.3,
   },
 
-  // Header
   header: {
     backgroundColor: colors.primary,
     paddingTop: 56,
@@ -598,7 +572,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
 
-  // Scroll
   scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
@@ -606,7 +579,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // Section title
   sectionTitle: {
     fontSize: 17,
     fontWeight: "700",
@@ -615,7 +587,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 4,
   },
 
-  // Appointment card
   appointmentCard: {
     backgroundColor: colors.white,
     borderRadius: 20,
@@ -710,7 +681,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Shortcuts grid
   shortcutsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -746,7 +716,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     lineHeight: 15,
   },
 
-  // Banner
   bannerCard: {
     backgroundColor: colors.primary,
     borderRadius: 20,

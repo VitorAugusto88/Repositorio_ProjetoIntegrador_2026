@@ -86,7 +86,7 @@ export default function PsychologistPatientListScreen() {
           ? appointmentsResult.data || []
           : [];
 
-        // ─── FEATURE 5: Load PatientProfile.id for each patient in parallel
+        // Load PatientProfile.id for each patient in parallel
       const patientsWithProfiles = (patientsResult.data || []).map((patient: any) => ({
   ...patient,
   userId: patient.user?.id ?? patient.id,
@@ -127,7 +127,7 @@ _displayPhone: patient.user?.phone ?? patient.phone ?? "Telefone não informado"
           },
         );
 
-        // ─── FEATURE 5: Pagination — show first 20 items and set hasMore flag
+        // Pagination — show first 20 items and set hasMore flag
         const pageSize = 20;
         const initialPageItems = patientsWithLastAppointment.slice(0, pageSize);
         setAllPatients(patientsWithLastAppointment);
@@ -172,7 +172,6 @@ _displayPhone: patient.user?.phone ?? patient.phone ?? "Telefone não informado"
     );
   }, [query, patients, allPatients]);
 
-  // ─── FEATURE 5: Handle load more ──────────────────────────────────────────
   const handleLoadMore = async () => {
     const pageSize = 20;
     const newPage = page + 1;
@@ -180,9 +179,6 @@ _displayPhone: patient.user?.phone ?? patient.phone ?? "Telefone não informado"
     const endIndex = startIndex + pageSize;
 
     setLoadingMore(true);
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
     const newPageItems = allPatients.slice(0, endIndex);
     setPatients(newPageItems);
     setPage(newPage);

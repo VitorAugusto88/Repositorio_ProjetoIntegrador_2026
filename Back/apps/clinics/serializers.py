@@ -74,18 +74,6 @@ class ClinicSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class ClinicSimpleSerializer(serializers.ModelSerializer):
-    """
-    Versão simplificada da clínica.
-    Usada dentro de outros serializers para não carregar dados demais.
-    Por exemplo: quando o frontend busca um usuário, aparece
-    só o nome e ID da clínica, não todos os detalhes.
-    """
-    class Meta:
-        model = Clinic
-        fields = ['id', 'name', 'address', 'phone']
-
-
 class RoomSerializer(serializers.ModelSerializer):
     """
     Sala da clinica.

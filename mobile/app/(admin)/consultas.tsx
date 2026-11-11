@@ -31,7 +31,7 @@ import { DateField, TimeField } from "../../components/DateTimeField";
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
 
-// ─── Cores semânticas fixas (categorias de status, não mudam com a paleta) ───
+// Cores semânticas fixas (categorias de status, não mudam com a paleta)
 
 const BLUE = "#2d6cdf";
 const ORANGE = "#c46a1a";
@@ -47,8 +47,6 @@ const CARD_SHADOW = {
   shadowOffset: { width: 0, height: 6 },
   elevation: 2,
 } as const;
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type StatusFilter = "all" | "scheduled" | "completed" | "cancelled" | "no_show";
 type AppointmentStatus = "completed" | "rescheduled" | "scheduled" | "no_show";
@@ -132,8 +130,6 @@ const STATUS_OPTIONS: { label: string; value: AppointmentStatus }[] = [
   { label: "Não compareceu", value: "no_show" },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const formatDateTime = (iso: string): string => {
   if (!iso) return "Data não informada";
   try {
@@ -187,8 +183,6 @@ const normalize = (
     roomName: resolveAppointmentRoomName(item),
   };
 };
-
-// ─── Subcomponentes ───────────────────────────────────────────────────────────
 
 const StatusBadge = ({
   status,
@@ -300,8 +294,6 @@ const AppointmentCard = ({
   );
 };
 
-// ─── Tela principal ───────────────────────────────────────────────────────────
-
 export default function AdminAppointmentsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -312,13 +304,11 @@ export default function AdminAppointmentsScreen() {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
 
-  // Modal alterar status
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] =
     useState<NormalizedAppointment | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Modal cancelamento
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelTarget, setCancelTarget] =
     useState<NormalizedAppointment | null>(null);
@@ -354,7 +344,6 @@ export default function AdminAppointmentsScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  // ── Carregamento ────────────────────────────────────────────────────────────
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -388,7 +377,6 @@ export default function AdminAppointmentsScreen() {
       const normalized = (apptResult.data ?? []).map((item) =>
         normalize(item, profMap),
       );
-      // Mais recentes primeiro
       normalized.sort(
         (a, b) =>
           new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime(),
@@ -410,7 +398,6 @@ export default function AdminAppointmentsScreen() {
     void loadData(true);
   };
 
-  // ── Filtros ─────────────────────────────────────────────────────────────────
   const filtered = appointments.filter((item) => {
     const matchesFilter =
       activeFilter === "all" || item.status === activeFilter;
@@ -430,7 +417,6 @@ export default function AdminAppointmentsScreen() {
     no_show: appointments.filter((a) => a.status === "no_show").length,
   };
 
-  // ── Ação: alterar status ────────────────────────────────────────────────────
   const openStatusModal = (item: NormalizedAppointment) => {
     setSelectedItem(item);
     setStatusModalVisible(true);
@@ -519,7 +505,6 @@ export default function AdminAppointmentsScreen() {
     }
   };
 
-  // ── Ação: cancelar ──────────────────────────────────────────────────────────
   const openCancelModal = (item: NormalizedAppointment) => {
     setCancelTarget(item);
     setCancelReason("");
@@ -568,7 +553,6 @@ export default function AdminAppointmentsScreen() {
     </View>
   );
 
-  // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.screen}>
@@ -582,7 +566,6 @@ export default function AdminAppointmentsScreen() {
     );
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
@@ -604,7 +587,6 @@ export default function AdminAppointmentsScreen() {
         <Animated.View
           style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
         >
-          {/* Resumo */}
           <View style={styles.heroCard}>
             <View style={styles.countersRow}>
               <View style={styles.counter}>
@@ -635,7 +617,6 @@ export default function AdminAppointmentsScreen() {
             </View>
           </View>
 
-          {/* Busca */}
           <View style={styles.searchBox}>
             <Ionicons name="search-outline" size={16} color="#94b3a6" />
             <TextInput
@@ -652,7 +633,6 @@ export default function AdminAppointmentsScreen() {
             )}
           </View>
 
-          {/* Filtros */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -695,7 +675,6 @@ export default function AdminAppointmentsScreen() {
             ))}
           </ScrollView>
 
-          {/* Lista */}
           {filtered.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
@@ -931,8 +910,6 @@ export default function AdminAppointmentsScreen() {
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
-
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.pageBg },
   header: { backgroundColor: colors.primary, paddingTop: 52, paddingBottom: 20 },
@@ -1023,7 +1000,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.textDark },
   emptySubtitle: { fontSize: 13, color: "#7a9e90", textAlign: "center", lineHeight: 19 },
 
-  // Modais
   modalOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center", padding: 24,
   },

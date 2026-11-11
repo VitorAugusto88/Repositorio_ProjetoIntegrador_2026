@@ -19,7 +19,7 @@ import type { ProfessionalApiItem } from '../../services/api';
 import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// ─── Cores semânticas fixas (não mudam com a paleta da clínica) ──────────────
+// Cores semânticas fixas (não mudam com a paleta da clínica)
 const ORANGE = '#c46a1a';
 const ORANGE_LIGHT = '#fef3e8';
 const RED = '#d95c5c';
@@ -143,7 +143,6 @@ export default function AdminPsicologosScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
-          {/* ── Resumo ── */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryValue}>{summary.total}</Text>
@@ -155,7 +154,6 @@ export default function AdminPsicologosScreen() {
             </View>
           </View>
 
-          {/* ── Nova ação ── */}
           <TouchableOpacity
             style={styles.newButton}
             onPress={() => router.push('/(admin)/cadastrar-psicologo')}
@@ -165,7 +163,6 @@ export default function AdminPsicologosScreen() {
             <Text style={styles.newButtonText}>Cadastrar novo psicólogo</Text>
           </TouchableOpacity>
 
-          {/* ── Busca e filtros ── */}
           <View style={styles.searchCard}>
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -197,7 +194,6 @@ export default function AdminPsicologosScreen() {
             </View>
           </View>
 
-          {/* ── Lista ── */}
           <View style={styles.listHeader}>
             <Text style={styles.sectionTitle}>Lista de psicólogos</Text>
             <View style={styles.countBadge}>

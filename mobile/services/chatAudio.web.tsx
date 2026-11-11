@@ -25,7 +25,7 @@ export interface ChatAudioRecorder {
   cancel: () => Promise<void>;
 }
 
-// ─── Helper de formatação de tempo (m:ss) ──────────────────────────────────────
+// Helper de formatação de tempo (m:ss)
 export function formatClock(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(total / 60);
@@ -33,7 +33,6 @@ export function formatClock(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// ─── Gravador (web) ────────────────────────────────────────────────────────────
 export function useChatAudioRecorder(): ChatAudioRecorder {
   const [isRecording, setIsRecording] = useState(false);
   const [durationMs, setDurationMs] = useState(0);
@@ -147,7 +146,6 @@ export function useChatAudioRecorder(): ChatAudioRecorder {
         try {
           mr.stop();
         } catch {
-          // ignora
         }
       }
       stopStream();
@@ -158,7 +156,6 @@ export function useChatAudioRecorder(): ChatAudioRecorder {
   return { isRecording, durationMs, start, stop, cancel };
 }
 
-// ─── Player inline (web) ───────────────────────────────────────────────────────
 // durationMs (opcional): duração real persistida no backend, medida na gravação.
 // Quando presente, é a fonte de verdade — evita o `audio.duration` do webm de
 // MediaRecorder, que o navegador reporta como Infinity/valor-lixo (causava, ex.,

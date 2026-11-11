@@ -171,7 +171,6 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* ── Conta ── */}
           <Text style={styles.sectionTitle}>Conta</Text>
           <View style={styles.card}>
             {profileRoute && (
@@ -197,7 +196,6 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* ── Notificações ── */}
           <Text style={styles.sectionTitle}>Notificações</Text>
           <View style={styles.card}>
             <View style={[styles.row, styles.rowLast]}>
@@ -232,7 +230,6 @@ export default function SettingsScreen() {
           {/* ── Aparência (só admin) ── */}
           {role === "admin" && <AppearanceSettings />}
 
-          {/* ── Dados ── */}
           <Text style={styles.sectionTitle}>Dados</Text>
           <View style={styles.card}>
             <Row
@@ -252,7 +249,6 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* ── Ajuda ── */}
           <Text style={styles.sectionTitle}>Ajuda</Text>
           <View style={styles.card}>
             <Row
@@ -263,7 +259,6 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* ── Privacidade e Termos ── */}
           <Text style={styles.sectionTitle}>Privacidade e Termos</Text>
           <View style={styles.card}>
             <Row
@@ -279,7 +274,6 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* ── Sobre ── */}
           <Text style={styles.sectionTitle}>Sobre</Text>
           <View style={styles.card}>
             <View style={styles.row}>
@@ -306,7 +300,6 @@ export default function SettingsScreen() {
   );
 }
 
-// ─── Linha de opção reutilizável ──────────────────────────────────────────────
 const Row = ({
   icon,
   label,

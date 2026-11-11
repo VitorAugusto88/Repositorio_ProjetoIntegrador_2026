@@ -5,7 +5,7 @@ quem pode ver o relatório de quem.
 Até esta rodada o app `reports` não tinha nenhum teste.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from django.urls import reverse
 from django.utils import timezone

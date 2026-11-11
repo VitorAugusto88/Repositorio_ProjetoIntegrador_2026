@@ -24,8 +24,6 @@ export interface ThemeColors {
   white: string;
 }
 
-// ─── Conversão de cor ──────────────────────────────────────────────────────
-
 interface Hsl {
   h: number; // 0-360
   s: number; // 0-100
@@ -104,7 +102,7 @@ export const hslToHex = ({ h, s, l }: Hsl): string => {
 export const isValidHexColor = (value: string): boolean =>
   /^#[0-9A-Fa-f]{6}$/.test(value);
 
-// ─── Geração da paleta a partir de uma cor-semente ────────────────────────
+// Geração da paleta a partir de uma cor-semente
 
 export const deriveTonalPalette = (seedHex: string): ThemeColors => {
   const seed = hexToHsl(seedHex);
@@ -141,8 +139,6 @@ export const deriveTonalPalette = (seedHex: string): ThemeColors => {
     white: "#ffffff",
   };
 };
-
-// ─── Paletas prontas ───────────────────────────────────────────────────────
 
 // Paleta original do app — hex literais, para não gerar nenhuma diferença
 // visual em clínicas já cadastradas (theme_preset='default' é o padrão).

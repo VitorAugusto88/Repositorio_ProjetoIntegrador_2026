@@ -16,17 +16,14 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { showAlert } from "../../services/feedback";
 import { getMyAssignedProfessional, ProfessionalApiItem } from "../../services/api";
 
-// ─── Psychologist Card ────────────────────────────────────────────────────────
 const PsychologistCard = ({
   item,
   onSchedule,
   fadeAnim,
-  index,
 }: {
   item: ProfessionalApiItem;
   onSchedule: () => void;
   fadeAnim: Animated.Value;
-  index: number;
 }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -50,7 +47,6 @@ const PsychologistCard = ({
 
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
-      {/* Availability badge */}
       <View
         style={[
           styles.availBadge,
@@ -73,7 +69,6 @@ const PsychologistCard = ({
         </Text>
       </View>
 
-      {/* Top row */}
       <View style={styles.cardTop}>
         <View style={[styles.avatar, { backgroundColor: bg }]}>
           <Text style={[styles.avatarText, { color }]}>{initials}</Text>
@@ -88,7 +83,6 @@ const PsychologistCard = ({
         </View>
       </View>
 
-      {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.newProfessionalBadge}>
           <Ionicons name="sparkles-outline" size={13} color="#c46a1a" />
@@ -105,10 +99,8 @@ const PsychologistCard = ({
         )}
       </View>
 
-      {/* Bio */}
       <Text style={styles.bio}>{item.bio}</Text>
 
-      {/* Schedule button */}
       <TouchableOpacity
         style={[styles.scheduleBtn, !available && styles.scheduleBtnDisabled]}
         onPress={available ? onSchedule : undefined}
@@ -133,7 +125,6 @@ const PsychologistCard = ({
   );
 };
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function MyPsychologistScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -183,7 +174,6 @@ export default function MyPsychologistScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back-outline" size={22} color="#fff" />
@@ -197,7 +187,6 @@ export default function MyPsychologistScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      {/* ── Conteúdo ── */}
       <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -221,7 +210,6 @@ export default function MyPsychologistScreen() {
           <>
             <PsychologistCard
               item={psychologist}
-              index={0}
               fadeAnim={fadeAnim}
               onSchedule={() => router.push("/agendamento")}
             />
@@ -238,12 +226,10 @@ export default function MyPsychologistScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.authBg },
 
-  // Header
   header: {
     backgroundColor: colors.primary,
     paddingTop: 52,
@@ -274,18 +260,12 @@ const createStyles = (colors: ThemeColors) =>
     marginTop: 2,
   },
 
-  // Search
-
-  // Filter chips
-
-  // List
   listContent: {
     padding: 20,
     paddingBottom: 40,
     gap: 16,
   },
 
-  // Card
   card: {
     backgroundColor: colors.white,
     borderRadius: 20,
@@ -359,7 +339,6 @@ const createStyles = (colors: ThemeColors) =>
     fontWeight: "700",
   },
 
-  // Stats
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -392,7 +371,6 @@ const createStyles = (colors: ThemeColors) =>
     fontWeight: "700",
   },
 
-  // Bio
   bio: {
     fontSize: 13,
     color: "#4a7a66",
@@ -400,7 +378,6 @@ const createStyles = (colors: ThemeColors) =>
     marginBottom: 16,
   },
 
-  // Schedule button
   scheduleBtn: {
     backgroundColor: colors.primary,
     borderRadius: 12,
@@ -429,7 +406,6 @@ const createStyles = (colors: ThemeColors) =>
     color: "#aaa",
   },
 
-  // Empty
   emptyBox: {
     alignItems: "center",
     justifyContent: "center",

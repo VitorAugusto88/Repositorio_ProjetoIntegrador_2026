@@ -34,7 +34,7 @@ import {
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
 
-// ─── Cores semânticas fixas (categorias, não mudam com a paleta) ──────────────
+// Cores semânticas fixas (categorias, não mudam com a paleta)
 const BLUE_LIGHT = "#eaf1ff";
 const MAX_WIDTH = 1120;
 
@@ -45,7 +45,6 @@ const API_BASE_URL = Platform.select({
   default: "http://127.0.0.1:8000/api",
 }) as string;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type FileType = "PDF" | "Imagem" | "Laudo" | "Receita" | "Outros";
 
 interface PatientDocument {
@@ -110,7 +109,7 @@ const formatDate = (iso: string): string => {
   return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
 };
 
-// ─── Status das consultas (para o histórico) ──────────────────────────────────
+// Status das consultas (para o histórico)
 // GREEN/GREEN_LIGHT (marca da clínica) entram como parâmetros porque mudam
 // conforme a paleta escolhida pelo admin — as demais cores são fixas.
 const buildStatusMeta = (
@@ -141,7 +140,6 @@ const getStatusMeta = (
   return statusMeta[status ?? "scheduled"] ?? statusMeta.scheduled;
 };
 
-// ─── ReadOnly Row ─────────────────────────────────────────────────────────────
 const ReadOnlyRow = ({
   label,
   value,
@@ -157,7 +155,6 @@ const ReadOnlyRow = ({
   </View>
 );
 
-// ─── Doc Card ─────────────────────────────────────────────────────────────────
 interface DocCardProps {
   item: PatientDocument;
   onDownload: (item: PatientDocument) => void;
@@ -212,7 +209,6 @@ const DocCard = ({ item, onDownload, onDelete, color, styles }: DocCardProps) =>
   );
 };
 
-// ─── Upload Modal ─────────────────────────────────────────────────────────────
 interface UploadModalProps {
   visible: boolean;
   onClose: () => void;
@@ -416,7 +412,6 @@ const UploadModal = ({ visible, onClose, onUpload, styles }: UploadModalProps) =
   );
 };
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function PsychologistPatientRecordScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -439,7 +434,6 @@ export default function PsychologistPatientRecordScreen() {
   const [medicalHistory, setMedicalHistory] = useState("");
   const [anamnesis, setAnamnesis] = useState("");
 
-  // Documentos
   const [documentos, setDocumentos] = useState<PatientDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -462,7 +456,6 @@ export default function PsychologistPatientRecordScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
 
-  // ── Toast de salvamento ───────────────────────────────────────────────────
   const [saved, setSaved] = useState(false);
   const saveAnim = useRef(new Animated.Value(0)).current;
 
@@ -475,7 +468,6 @@ export default function PsychologistPatientRecordScreen() {
     ]).start(() => setSaved(false));
   };
 
-  // ── Carrega documentos ────────────────────────────────────────────────────
   useEffect(() => {
     async function carregarDocumentos() {
       if (!params.patientId) return;
@@ -511,7 +503,6 @@ export default function PsychologistPatientRecordScreen() {
     carregarDocumentos();
   }, [params.patientId]);
 
-  // ── Carrega perfil do paciente ────────────────────────────────────────────
   useEffect(() => {
     const loadPatientData = async () => {
       if (!params.patientId) {
@@ -543,7 +534,7 @@ export default function PsychologistPatientRecordScreen() {
     loadPatientData();
   }, [params.patientId]);
 
-  // ── Carrega histórico de consultas do paciente ────────────────────────────
+  // Carrega histórico de consultas do paciente
   useEffect(() => {
     const patientProfileId = patient?.id || params.patientProfileId;
     if (!patientProfileId) return;
@@ -554,7 +545,6 @@ export default function PsychologistPatientRecordScreen() {
       if (result.ok && result.data) {
         const ordenadas = [...result.data]
           .filter((a) => a.scheduled_at)
-          // mais recentes primeiro
           .sort(
             (a, b) =>
               new Date(b.scheduled_at!).getTime() -
@@ -569,7 +559,7 @@ export default function PsychologistPatientRecordScreen() {
     carregarConsultas();
   }, [patient?.id, params.patientProfileId]);
 
-  // ── Abre/salva a nota de sessão de uma consulta ───────────────────────────
+  // Abre/salva a nota de sessão de uma consulta
   const openNote = async (appointment: AppointmentApiItem) => {
     setNoteModal(appointment);
     setNoteText("");
@@ -599,7 +589,6 @@ export default function PsychologistPatientRecordScreen() {
     }
   };
 
-  // ── Animação ──────────────────────────────────────────────────────────────
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -615,7 +604,6 @@ export default function PsychologistPatientRecordScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  // ── Filtros ───────────────────────────────────────────────────────────────
   const filteredDocs = documentos.filter((d) => {
     const matchSearch = d.title.toLowerCase().includes(docSearch.toLowerCase());
     const matchFilter =
@@ -625,7 +613,6 @@ export default function PsychologistPatientRecordScreen() {
 
   const docFilters: (FileType | "Todos")[] = ["Todos", ...FILE_TYPE_OPTIONS];
 
-  // ── Download ──────────────────────────────────────────────────────────────
   const handleDownload = async (item: PatientDocument) => {
     const url = item.download_url || item.url;
     if (url) {
@@ -638,7 +625,6 @@ export default function PsychologistPatientRecordScreen() {
     );
   };
 
-  // ── Excluir ───────────────────────────────────────────────────────────────
   const handleDeletePress = (id: string) => {
     const doc = documentos.find((d) => d.id === id);
     if (!id || !doc) return;
@@ -661,7 +647,7 @@ export default function PsychologistPatientRecordScreen() {
     setDocumentos((prev) => prev.filter((d) => d.id !== deleteConfirm.id));
   };
 
-  // ── Upload — mesmo padrão do documento.tsx + campo "patient" para o psicólogo
+  // Upload de documento do paciente pelo psicólogo (campo "patient" obrigatório)
   const handleUpload = async (
     title: string,
     fileType: FileType,
@@ -685,7 +671,7 @@ export default function PsychologistPatientRecordScreen() {
       formData.append("patient", patientProfileId);
     }
 
-    // Mesmo tratamento do documento.tsx: Web precisa de Blob real
+    // Web precisa de Blob real
     if (Platform.OS === "web") {
       const blobRes = await fetch(fileUri);
       const blob = await blobRes.blob();
@@ -740,7 +726,6 @@ export default function PsychologistPatientRecordScreen() {
     }
   };
 
-  // ── Salvar ficha clínica ──────────────────────────────────────────────────
   const handleSave = async () => {
     const userId = patientUserId || params.patientId;
     if (!userId) {
@@ -768,12 +753,10 @@ export default function PsychologistPatientRecordScreen() {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -808,7 +791,6 @@ export default function PsychologistPatientRecordScreen() {
               transform: [{ translateY: slideAnim }],
             }}
           >
-            {/* Hero */}
             <View style={styles.heroCard}>
               <View style={styles.heroTopRow}>
                 <View style={styles.avatar}>
@@ -844,7 +826,6 @@ export default function PsychologistPatientRecordScreen() {
               </View>
             </View>
 
-            {/* Dados pessoais */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Dados pessoais</Text>
               <ReadOnlyRow
@@ -880,7 +861,6 @@ export default function PsychologistPatientRecordScreen() {
               />
             </View>
 
-            {/* Histórico médico */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Historico medico</Text>
               <Text style={styles.sectionHint}>
@@ -897,7 +877,6 @@ export default function PsychologistPatientRecordScreen() {
               />
             </View>
 
-            {/* Anamnese */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Anamnese</Text>
               <Text style={styles.sectionHint}>
@@ -914,7 +893,6 @@ export default function PsychologistPatientRecordScreen() {
               />
             </View>
 
-            {/* Histórico de consultas */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Histórico de consultas</Text>
               <Text style={styles.sectionHint}>
@@ -991,7 +969,6 @@ export default function PsychologistPatientRecordScreen() {
               )}
             </View>
 
-            {/* Documentos */}
             <View style={styles.card}>
               <View style={styles.docSectionHeader}>
                 <Text style={styles.sectionTitle}>Documentos do paciente</Text>
@@ -1005,7 +982,6 @@ export default function PsychologistPatientRecordScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Busca */}
               <View style={styles.docSearchBox}>
                 <Ionicons name="search-outline" size={15} color="#7aab96" />
                 <TextInput
@@ -1022,7 +998,6 @@ export default function PsychologistPatientRecordScreen() {
                 )}
               </View>
 
-              {/* Filtros */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1050,7 +1025,6 @@ export default function PsychologistPatientRecordScreen() {
                 ))}
               </ScrollView>
 
-              {/* Lista */}
               {loadingDocs ? (
                 <ActivityIndicator
                   size="small"
@@ -1093,7 +1067,6 @@ export default function PsychologistPatientRecordScreen() {
               )}
             </View>
 
-            {/* Salvar ficha */}
             <TouchableOpacity
               style={[styles.saveButton, saving && { opacity: 0.6 }]}
               onPress={handleSave}
@@ -1127,7 +1100,6 @@ export default function PsychologistPatientRecordScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Toast de sucesso */}
             {saved && (
               <Animated.View style={[styles.toastBox, { opacity: saveAnim }]}>
                 <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
@@ -1138,7 +1110,6 @@ export default function PsychologistPatientRecordScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Upload Modal */}
       <UploadModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -1146,7 +1117,6 @@ export default function PsychologistPatientRecordScreen() {
         styles={styles}
       />
 
-      {/* Modal confirmação exclusão */}
       <Modal
         visible={!!deleteConfirm}
         transparent
@@ -1263,7 +1233,6 @@ export default function PsychologistPatientRecordScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.pageBg },

@@ -5,7 +5,6 @@ from rest_framework import serializers
 from .models import ChatMessage
 from apps.accounts.models import User
 from apps.accounts.serializers import UserSerializer
-from apps.appointments.models import Appointment
 from apps.uploads import DOCUMENT_EXTENSIONS, validate_signature
 
 MAX_CHAT_ATTACHMENT_SIZE = 20 * 1024 * 1024
@@ -197,13 +196,3 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             )
 
         return inferred_type
-
-
-class ChatMessageReadSerializer(serializers.ModelSerializer):
-    """
-    Serializer exclusivo para marcar mensagem como lida.
-    """
-
-    class Meta:
-        model = ChatMessage
-        fields = ["read"]

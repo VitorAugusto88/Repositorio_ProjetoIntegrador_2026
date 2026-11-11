@@ -42,7 +42,6 @@ interface ProfilePayload {
   emergency_contact_phone?: string;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface EditableFields {
   name: string;
   phone: string;
@@ -52,7 +51,6 @@ interface EditableFields {
   emergencyPhone: string;
 }
 
-// ─── Editable Row ─────────────────────────────────────────────────────────────
 interface EditableRowProps {
   label: string;
   value: string;
@@ -140,7 +138,6 @@ const EditableRow = ({
   );
 };
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -332,7 +329,7 @@ export default function ProfileScreen() {
 
       const userId = meResult.data.id;
 
-      // ── Passo 1: salvar full_name e phone no User via PATCH /api/auth/me/
+      // Passo 1: salvar full_name e phone no User via PATCH /api/auth/me/
       // phone pertence ao model User — updatePatientProfile não consegue salvá-lo
       const meUpdateResult = await updateMe({
         full_name: fields.name,
@@ -351,7 +348,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      // ── Passo 2: salvar campos do PatientProfile
+      // Passo 2: salvar campos do PatientProfile
       const profilePayload: ProfilePayload = {
         birth_date: fields.birthDate || undefined,
         cpf: fields.cpf || undefined,
@@ -387,7 +384,6 @@ export default function ProfileScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back-outline" size={22} color="#fff" />
@@ -405,7 +401,6 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      {/* ── Avatar ── */}
       <View style={styles.avatarSection}>
         <TouchableOpacity
           style={styles.avatar}
@@ -446,7 +441,6 @@ export default function ProfileScreen() {
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         >
-          {/* ── Dados Pessoais ── */}
           <View style={styles.card}>
             <SectionHeader icon="person-outline" title="Dados Pessoais" />
 
@@ -508,7 +502,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Contato de Emergência ── */}
           <View style={styles.card}>
             <SectionHeader icon="call-outline" title="Contato de Emergência" />
 
@@ -529,7 +522,6 @@ export default function ProfileScreen() {
             />
           </View>
 
-          {/* ── Botão Salvar ── */}
           {editing && (
             <TouchableOpacity
               style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
@@ -548,7 +540,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Sair da conta ── */}
           {!editing && (
             <TouchableOpacity
               style={styles.logoutBtn}
@@ -565,14 +556,12 @@ export default function ProfileScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.authBg,
   },
 
-  // Header
   header: {
     backgroundColor: colors.primary,
     paddingTop: 52,
@@ -622,7 +611,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Avatar section
   avatarSection: {
     backgroundColor: colors.primary,
     alignItems: "center",
@@ -672,14 +660,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 3,
   },
 
-  // Scroll
   scroll: { flex: 1 },
   scrollContent: {
     padding: 20,
     paddingBottom: 48,
   },
 
-  // Card
   card: {
     backgroundColor: colors.white,
     borderRadius: 20,
@@ -692,7 +678,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     elevation: 3,
   },
 
-  // Section header
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -714,7 +699,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0.1,
   },
 
-  // Info row
   infoRow: {
     paddingVertical: 10,
   },
@@ -735,7 +719,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: "#4a7a66",
   },
 
-  // Editable row
   editableRow: {
     paddingVertical: 10,
   },
@@ -749,38 +732,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 2,
   },
 
-  // Divider
   rowDivider: {
     height: 1,
     backgroundColor: "#f0f8f4",
   },
 
-  // Read-only badge
-  readOnlyBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#f0faf5",
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginBottom: 12,
-  },
-  readOnlyText: {
-    fontSize: 11,
-    color: "#7aab96",
-    fontWeight: "600",
-  },
-
-  // Long text
-  longText: {
-    fontSize: 14,
-    color: "#3a6054",
-    lineHeight: 22,
-  },
-
-  // Save button
   saveBtn: {
     backgroundColor: colors.primary,
     borderRadius: 16,
@@ -833,7 +789,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   clinicBtnTitle: { fontSize: 15, fontWeight: "700", color: "#1a3d31" },
   clinicBtnHint: { fontSize: 12, color: "#7aab96", fontWeight: "500", marginTop: 2 },
 
-  // Logout button
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",

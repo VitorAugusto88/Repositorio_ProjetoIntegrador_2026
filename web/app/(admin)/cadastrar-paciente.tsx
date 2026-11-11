@@ -114,7 +114,6 @@ export default function CadastrarPacienteScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
 
-          {/* Dados de acesso */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>
@@ -133,7 +132,6 @@ export default function CadastrarPacienteScreen() {
             <TextInput style={styles.input} placeholder="(00) 00000-0000" placeholderTextColor="#94b3a6" value={form.phone} onChangeText={patch('phone')} keyboardType="phone-pad" />
           </View>
 
-          {/* Psicólogo responsável */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>
@@ -184,7 +182,6 @@ export default function CadastrarPacienteScreen() {
             )}
           </View>
 
-          {/* Dados clínicos */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>
@@ -200,7 +197,6 @@ export default function CadastrarPacienteScreen() {
             <TextInput style={styles.input} placeholder="000.000.000-00" placeholderTextColor="#94b3a6" value={form.cpf} onChangeText={patch('cpf')} keyboardType="numeric" />
           </View>
 
-          {/* Contato de emergência */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardIcon}>

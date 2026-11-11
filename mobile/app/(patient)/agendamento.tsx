@@ -24,7 +24,6 @@ import {
   ProfessionalApiItem,
 } from "../../services/api";
 import { showAlert } from "../../services/feedback";
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS = [
   "Janeiro",
@@ -76,7 +75,6 @@ const generateSlots = (
   return slots;
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface Psychologist {
   id: string;
   name: string;
@@ -135,7 +133,6 @@ const normalizeProfessional = (
 
 type AvailabilityItem = AppointmentAvailabilityApiItem;
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function ScheduleScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -256,7 +253,6 @@ export default function ScheduleScreen() {
     void loadAvailability();
   }, [activePsychologist]);
 
-  // ── Calendar logic ──────────────────────────────────────────────────────────
   const getDaysInMonth = (year: number, month: number) =>
     new Date(year, month + 1, 0).getDate();
 
@@ -277,7 +273,7 @@ export default function ScheduleScreen() {
 
   const isAvailable = (year: number, month: number, day: number) => {
     const jsWeekday = new Date(year, month, day).getDay();
-    // ✅ Converte JS (0=Dom) → Django (0=Seg)
+    // Converte JS (0=Dom) → Django (0=Seg)
     const djangoWeekday = jsToDjangoWeekday(jsWeekday);
     return availability.some(
       (item) => !item.blocked && item.weekday === djangoWeekday,
@@ -311,7 +307,6 @@ export default function ScheduleScreen() {
     setSelectedTime(null);
   };
 
-  // ── Confirm ─────────────────────────────────────────────────────────────────
   const handleConfirm = async () => {
     if (!selectedDate || !selectedTime || !activePsychologist) {
       showAlert("Erro", "Preencha todos os campos antes de confirmar.");
@@ -360,14 +355,12 @@ export default function ScheduleScreen() {
     }
   };
 
-  // ── Formatters ───────────────────────────────────────────────────────────────
   const formatDate = (key: string) => {
     const [y, m, d] = key.split("-").map(Number);
     const date = new Date(y, m - 1, d);
     return `${WEEKDAYS[date.getDay()]}, ${d} de ${MONTHS[m - 1]}`;
   };
 
-  // ── Build calendar grid ──────────────────────────────────────────────────────
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
   const calendarCells: (number | null)[] = [
@@ -376,17 +369,17 @@ export default function ScheduleScreen() {
   ];
   while (calendarCells.length % 7 !== 0) calendarCells.push(null);
 
-  // ── Slots para o dia selecionado ─────────────────────────────────────────────
+  // Slots para o dia selecionado
   const selectedDjangoWeekday = selectedDate
     ? (() => {
         const [y, m, d] = selectedDate.split("-").map(Number);
         const jsWeekday = new Date(y, m - 1, d).getDay();
-        // ✅ Converte JS (0=Dom) → Django (0=Seg)
+        // Converte JS (0=Dom) → Django (0=Seg)
         return jsToDjangoWeekday(jsWeekday);
       })()
     : null;
 
-  // ✅ Gera slots de 50 em 50 min dentro de cada bloco de disponibilidade
+  // Gera slots de 50 em 50 min dentro de cada bloco de disponibilidade
   const slots =
     selectedDjangoWeekday !== null
       ? availability
@@ -404,7 +397,6 @@ export default function ScheduleScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back-outline" size={22} color="#fff" />
@@ -426,7 +418,6 @@ export default function ScheduleScreen() {
             </View>
           ) : activePsychologist ? (
             <>
-              {/* ── Psychologist card ── */}
               <View style={styles.psychCard}>
                 <View
                   style={[
@@ -481,9 +472,7 @@ export default function ScheduleScreen() {
                 </View>
               </View>
 
-              {/* ── Calendar ── */}
               <View style={styles.card}>
-                {/* Month nav */}
                 <View style={styles.monthNav}>
                   <TouchableOpacity style={styles.navBtn} onPress={prevMonth}>
                     <Ionicons
@@ -504,7 +493,6 @@ export default function ScheduleScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Weekday headers */}
                 <View style={styles.weekdaysRow}>
                   {WEEKDAYS.map((w) => (
                     <Text
@@ -516,7 +504,6 @@ export default function ScheduleScreen() {
                   ))}
                 </View>
 
-                {/* Days grid */}
                 <View style={styles.daysGrid}>
                   {calendarCells.map((day, idx) => {
                     if (!day)
@@ -575,7 +562,6 @@ export default function ScheduleScreen() {
                   })}
                 </View>
 
-                {/* Legend */}
                 <View style={styles.legend}>
                   <View style={styles.legendItem}>
                     <View
@@ -614,7 +600,6 @@ export default function ScheduleScreen() {
             </View>
           )}
 
-          {/* ── Time slots ── */}
           {selectedDate && (
             <View style={styles.card}>
               <View style={styles.slotHeader}>
@@ -660,7 +645,6 @@ export default function ScheduleScreen() {
             </View>
           )}
 
-          {/* ── Summary ── */}
           {selectedDate && selectedTime && (
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
@@ -691,7 +675,6 @@ export default function ScheduleScreen() {
             </View>
           )}
 
-          {/* ── Confirm button ── */}
           <TouchableOpacity
             style={[
               styles.confirmBtn,
@@ -730,14 +713,12 @@ export default function ScheduleScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const CELL = 42;
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.authBg },
 
-    // Header
     header: {
       backgroundColor: colors.primary,
       paddingTop: 52,
@@ -770,8 +751,6 @@ const createStyles = (colors: ThemeColors) =>
       alignSelf: "center",
     },
 
-
-    // Psychologist card
     psychCard: {
       backgroundColor: colors.white,
       borderRadius: 20,
@@ -836,7 +815,6 @@ const createStyles = (colors: ThemeColors) =>
       flexShrink: 1,
     },
 
-    // Card wrapper
     card: {
       backgroundColor: colors.white,
       borderRadius: 20,
@@ -848,7 +826,6 @@ const createStyles = (colors: ThemeColors) =>
       elevation: 3,
     },
 
-    // Month navigation
     monthNav: {
       flexDirection: "row",
       alignItems: "center",
@@ -869,7 +846,6 @@ const createStyles = (colors: ThemeColors) =>
       color: "#1a3d31",
     },
 
-    // Weekdays
     weekdaysRow: {
       flexDirection: "row",
       marginBottom: 8,
@@ -883,7 +859,6 @@ const createStyles = (colors: ThemeColors) =>
       textTransform: "uppercase",
     },
 
-    // Days grid
     daysGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -934,7 +909,6 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primary,
     },
 
-    // Legend
     legend: {
       flexDirection: "row",
       justifyContent: "center",
@@ -957,7 +931,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: "500",
     },
 
-    // Time slots
     slotHeader: {
       flexDirection: "row",
       alignItems: "center",
@@ -1001,7 +974,6 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.white,
     },
 
-    // Summary
     summaryCard: {
       backgroundColor: colors.white,
       borderRadius: 20,
@@ -1029,7 +1001,6 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: "#f0f8f4",
     },
 
-    // Confirm button
     confirmBtn: {
       backgroundColor: colors.primary,
       borderRadius: 16,

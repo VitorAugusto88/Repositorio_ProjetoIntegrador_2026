@@ -17,3 +17,6 @@ desktop.ini
 
 # Cada projeto (Back/, web/, mobile/) tem o próprio .gitignore
 # para venv, node_modules, .env etc.
+
+# Configuração de IDE (PyCharm/IntelliJ)
+.idea/

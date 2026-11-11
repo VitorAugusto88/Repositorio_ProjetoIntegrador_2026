@@ -98,16 +98,13 @@ export default function ConsultaDetalheScreen() {
   const [profMap, setProfMap] = useState<Record<string, { name: string; specialty: string }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Cancel modal
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  // Status modal
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Reschedule modal
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
   const [reDate, setReDate] = useState('');
   const [reTime, setReTime] = useState('');
@@ -169,8 +166,6 @@ export default function ConsultaDetalheScreen() {
     void load();
   }, [id]);
 
-  // ─── Derived data ──────────────────────────────────────────────────────────
-
   const status = appointment?.status ?? 'scheduled';
   const scheduledAt = appointment?.scheduled_at ?? '';
   // Consulta em aberto cujo dia ja passou: rotulo automatico, sem acao do
@@ -207,8 +202,6 @@ export default function ConsultaDetalheScreen() {
 
   const isScheduled = status === 'scheduled';
   const isCancelled = status === 'cancelled';
-
-  // ─── Actions ───────────────────────────────────────────────────────────────
 
   const handleCancel = async () => {
     if (!appointment) return;
@@ -277,8 +270,6 @@ export default function ConsultaDetalheScreen() {
     }
   };
 
-  // ─── Loading ───────────────────────────────────────────────────────────────
-
   if (loading) {
     return (
       <View style={styles.screen}>
@@ -328,7 +319,6 @@ export default function ConsultaDetalheScreen() {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <DecorativeBackground styles={styles} />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back-outline" size={22} color="#fff" />
@@ -343,7 +333,6 @@ export default function ConsultaDetalheScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
-          {/* Status banner */}
           <View style={[styles.statusBanner, { backgroundColor: statusCfg.bg }]}>
             <View style={[styles.statusIconBox, { backgroundColor: statusCfg.color + '20' }]}>
               <Ionicons name={statusCfg.icon as any} size={28} color={statusCfg.color} />
@@ -354,7 +343,6 @@ export default function ConsultaDetalheScreen() {
             </View>
           </View>
 
-          {/* Professional card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Profissional</Text>
             <View style={styles.personRow}>
@@ -368,7 +356,6 @@ export default function ConsultaDetalheScreen() {
             </View>
           </View>
 
-          {/* Patient card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Paciente</Text>
             <View style={styles.personRow}>
@@ -384,7 +371,6 @@ export default function ConsultaDetalheScreen() {
             </View>
           </View>
 
-          {/* Details card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Informacoes</Text>
             <View style={styles.detailsGrid}>
@@ -403,7 +389,6 @@ export default function ConsultaDetalheScreen() {
             </View>
           </View>
 
-          {/* Cancel reason */}
           {isCancelled && cancelReasonfromApi ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Motivo do cancelamento</Text>
@@ -414,7 +399,6 @@ export default function ConsultaDetalheScreen() {
             </View>
           ) : null}
 
-          {/* Session notes */}
           {sessionNotes ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Notas da sessao</Text>
@@ -425,7 +409,6 @@ export default function ConsultaDetalheScreen() {
             </View>
           ) : null}
 
-          {/* Actions */}
           <View style={styles.actionsCard}>
             <Text style={styles.cardTitle}>Acoes</Text>
 
@@ -478,7 +461,6 @@ export default function ConsultaDetalheScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* ── Cancel Modal ── */}
       <Modal visible={cancelModalVisible} transparent animationType="fade" onRequestClose={() => !cancelling && setCancelModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -528,7 +510,6 @@ export default function ConsultaDetalheScreen() {
         </View>
       </Modal>
 
-      {/* ── Status Modal ── */}
       <Modal visible={statusModalVisible} transparent animationType="fade" onRequestClose={() => !updatingStatus && setStatusModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -570,7 +551,6 @@ export default function ConsultaDetalheScreen() {
         </View>
       </Modal>
 
-      {/* ── Reschedule Modal ── */}
       <Modal visible={rescheduleVisible} transparent animationType="fade" onRequestClose={() => !rescheduling && setRescheduleVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -626,7 +606,6 @@ export default function ConsultaDetalheScreen() {
   );
 }
 
-// ─── InfoRow ──────────────────────────────────────────────────────────────────
 const InfoRow = ({ icon, label, value, valueColor, styles }: { icon: string; label: string; value: string; valueColor?: string; styles: ReturnType<typeof createStyles> }) => (
   <View style={styles.infoRow}>
     <Ionicons name={icon as any} size={16} color="#6c8c80" />
@@ -635,7 +614,6 @@ const InfoRow = ({ icon, label, value, valueColor, styles }: { icon: string; lab
   </View>
 );
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.authBg },
   circle1: {
@@ -664,7 +642,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 22, paddingBottom: 40, maxWidth: 960, alignSelf: 'center' as const, width: '100%' as const },
 
-  // Status banner
   statusBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
     borderRadius: 24, padding: 20, marginTop: -18, marginBottom: 18,
@@ -676,7 +653,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statusLabel: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
   statusDate: { fontSize: 14, color: '#5d7c71', fontWeight: '600', marginTop: 4 },
 
-  // Cards
   card: {
     backgroundColor: colors.white, borderRadius: 22, padding: 20, marginBottom: 14,
     shadowColor: '#174c3e', shadowOpacity: 0.06, shadowRadius: 12,
@@ -687,7 +663,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0.8, marginBottom: 14,
   },
 
-  // Person row
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 17, fontWeight: '800' },
@@ -695,17 +670,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   personName: { fontSize: 16, fontWeight: '800', color: '#183d32' },
   personMeta: { fontSize: 13, color: '#6a877c', marginTop: 3 },
 
-  // Details
   detailsGrid: { gap: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0f6f3' },
   infoLabel: { fontSize: 13, fontWeight: '600', color: '#6c8c80', width: 80 },
   infoValue: { flex: 1, fontSize: 14, fontWeight: '700', color: '#183d32' },
 
-  // Notes
   noteBox: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 14, backgroundColor: '#f8fcfa' },
   noteText: { flex: 1, fontSize: 14, color: '#1f4036', lineHeight: 21 },
 
-  // Actions
   actionsCard: {
     backgroundColor: colors.white, borderRadius: 22, padding: 20, marginBottom: 14,
     shadowColor: '#174c3e', shadowOpacity: 0.06, shadowRadius: 12,
@@ -722,7 +694,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   noActionsBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: '#f8fcfa' },
   noActionsText: { flex: 1, fontSize: 13, color: '#7a9e90', lineHeight: 19 },
 
-  // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalBox: { backgroundColor: colors.white, borderRadius: 24, padding: 24, width: '100%', maxWidth: 400 },
   modalIconBox: {

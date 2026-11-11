@@ -27,7 +27,7 @@ import {
 const psychologistName = (item?: ProfessionalApiItem | null) =>
   item?.user?.full_name?.trim() || item?.full_name?.trim() || item?.name?.trim() || '';
 
-// ─── Cores semânticas fixas (não mudam com a paleta) ──────────────────────────
+// Cores semânticas fixas (não mudam com a paleta)
 const BLUE = '#2d6cdf';
 const BLUE_LIGHT = '#eaf1ff';
 const RED = '#d95c5c';
@@ -82,7 +82,6 @@ export default function PatientDetailScreen() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Campos editáveis
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
 
@@ -246,7 +245,6 @@ export default function PatientDetailScreen() {
       >
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
-          {/* ── Avatar + nome ── */}
           <View style={styles.profileCard}>
             <View style={styles.avatarLarge}>
               <Text style={styles.avatarText}>{initials}</Text>
@@ -272,7 +270,6 @@ export default function PatientDetailScreen() {
             </View>
           </View>
 
-          {/* ── Dados cadastrais ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Dados cadastrais</Text>
 
@@ -299,7 +296,6 @@ export default function PatientDetailScreen() {
             />
           </View>
 
-          {/* ── Psicólogo responsável ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Psicólogo responsável</Text>
 
@@ -401,7 +397,6 @@ export default function PatientDetailScreen() {
             )}
           </View>
 
-          {/* ── Edição rápida ── */}
           {editing ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Editar dados básicos</Text>
@@ -465,7 +460,6 @@ export default function PatientDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Ações rápidas ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Ações rápidas</Text>
             <TouchableOpacity
@@ -637,7 +631,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   editButtonText: { fontSize: 15, fontWeight: '700', color: colors.primary },
 
-  // Psicólogo responsável
   psychologistHint: { fontSize: 12.5, color: colors.textMuted, lineHeight: 18, marginTop: 12 },
   psychologistList: { marginTop: 14, gap: 8 },
   psychologistOption: {

@@ -15,8 +15,6 @@ export const USUARIOS = {
   psicologoB: "psi.b@e2e.local",
 } as const;
 
-// ─── Interface ───────────────────────────────────────────────────────────────
-
 export async function entrar(page: Page, email: string, senha = SENHA) {
   await page.goto("/login");
   const campos = page.locator("input");
@@ -47,8 +45,6 @@ export async function clicar(page: Page, texto: string | RegExp) {
   await textoVisivel(page, texto).click();
 }
 
-// ─── Datas ───────────────────────────────────────────────────────────────────
-
 const pad = (n: number) => String(n).padStart(2, "0");
 export const dataISO = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -73,8 +69,6 @@ export function proximoSabado(): Date {
   while (d.getDay() !== 6) d.setDate(d.getDate() + 1);
   return d;
 }
-
-// ─── API ─────────────────────────────────────────────────────────────────────
 
 export async function tokens(request: APIRequestContext, email: string) {
   const resposta = await request.post(`${API_URL}/auth/login/`, {

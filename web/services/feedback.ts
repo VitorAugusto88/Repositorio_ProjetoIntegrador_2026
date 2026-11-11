@@ -1,4 +1,4 @@
-// ─── Sistema de feedback na tela (toast + diálogo) ──────────────────────────
+// Sistema de feedback na tela (toast + diálogo)
 //
 // Motivo: o `Alert.alert` do React Native é um *no-op* no react-native-web
 // (alvo principal deste app). Por isso as mensagens de sucesso/erro que o

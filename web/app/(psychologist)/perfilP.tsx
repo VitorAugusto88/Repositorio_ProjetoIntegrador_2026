@@ -27,7 +27,6 @@ import {
 } from "../../services/api";
 import { confirmAction } from "../../services/confirm";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface EditableFields {
   name: string;
   phone: string;
@@ -98,7 +97,6 @@ const EditableRow = ({
   );
 };
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function PsychologistProfileScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -299,7 +297,6 @@ export default function PsychologistProfileScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -319,7 +316,6 @@ export default function PsychologistProfileScreen() {
         </View>
       </View>
 
-      {/* ── Avatar ── */}
       <View style={styles.avatarSection}>
         <TouchableOpacity
           style={styles.avatar}
@@ -357,7 +353,6 @@ export default function PsychologistProfileScreen() {
       >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
-          {/* ── Dados Pessoais ── */}
           <View style={styles.card}>
             <SectionHeader icon="person-outline" title="Dados Pessoais" />
             <EditableRow label="Nome completo" value={fields.name} onChangeText={set("name")} editable={editing} />
@@ -367,7 +362,6 @@ export default function PsychologistProfileScreen() {
             <EditableRow label="Telefone" value={fields.phone} onChangeText={set("phone")} keyboardType="phone-pad" editable={editing} />
           </View>
 
-          {/* ── Dados Profissionais ── */}
           <View style={styles.card}>
             <SectionHeader icon="briefcase-outline" title="Dados Profissionais" />
             <EditableRow label="CRP" value={fields.crp} onChangeText={set("crp")} editable={editing} />
@@ -377,8 +371,6 @@ export default function PsychologistProfileScreen() {
             <EditableRow label="Bio / Apresentação" value={fields.bio} onChangeText={set("bio")} editable={editing} multiline />
           </View>
 
-
-          {/* ── Botão Sair ── */}
           {!editing && (
             <TouchableOpacity
               style={styles.logoutBtn}
@@ -390,7 +382,6 @@ export default function PsychologistProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Botão Salvar ── */}
           {editing && (
             <TouchableOpacity
               style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -415,7 +406,6 @@ export default function PsychologistProfileScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.pageBg },
 
@@ -521,20 +511,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
 
   rowDivider: { height: 1, backgroundColor: "#f0f8f4" },
-
-  availabilityLink: {
-    backgroundColor: colors.white, borderRadius: 20, padding: 18, marginBottom: 16,
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
-  },
-  availabilityLinkLeft: { flexDirection: "row", alignItems: "center", gap: 14 },
-  availabilityLinkIcon: {
-    width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primaryTint,
-    alignItems: "center", justifyContent: "center",
-  },
-  availabilityLinkTitle: { fontSize: 15, fontWeight: "700", color: "#1a3d31" },
-  availabilityLinkSub: { fontSize: 12, color: "#7aab96", marginTop: 2 },
 
   saveBtn: {
     backgroundColor: colors.primary, borderRadius: 16, height: 54,

@@ -232,7 +232,6 @@ export default function AdminClinicManagementScreen() {
       return;
     }
 
-    // Validação simples
     if (form.openingTime >= form.closingTime) {
       showAlert(
         "Erro",

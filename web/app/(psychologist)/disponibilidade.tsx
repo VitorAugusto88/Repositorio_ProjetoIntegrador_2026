@@ -24,7 +24,6 @@ import {
     updateAvailability,
 } from "../../services/api";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface AvailabilitySlot {
   id: string;
   weekday: number;
@@ -33,7 +32,6 @@ interface AvailabilitySlot {
   end_time: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const WEEKDAYS = [
   { label: "Segunda", value: 0 },
   { label: "Terça", value: 1 },
@@ -72,7 +70,6 @@ const TIME_OPTIONS = Array.from({ length: 28 }, (_, i) => {
 
 const MAX_WIDTH = 1120;
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AvailabilityScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -199,7 +196,6 @@ export default function AvailabilityScreen() {
         );
       }
     } else {
-      // Criar novo slot
       if (!professionalId) {
         showAlert("Erro", "Perfil profissional não carregado.");
         setSaving(false);
@@ -242,7 +238,6 @@ export default function AvailabilityScreen() {
 
     try {
       const result = await deleteAvailability(slotToDelete.id);
-    
 
       if (result.ok) {
         setAvailability((prev) => prev.filter((s) => s.id !== slotToDelete.id));
@@ -278,7 +273,6 @@ export default function AvailabilityScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <TouchableOpacity
@@ -295,7 +289,6 @@ export default function AvailabilityScreen() {
         </View>
       </View>
 
-      {/* ── Summary Bar ── */}
       <View style={styles.summaryBar}>
         <View style={styles.summaryInner}>
           <View style={styles.summaryItem}>
@@ -321,7 +314,6 @@ export default function AvailabilityScreen() {
         </View>
       </View>
 
-      {/* ── Content ── */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.primary} size="large" />
@@ -358,7 +350,6 @@ export default function AvailabilityScreen() {
               </View>
             ) : (
               <>
-                {/* Weekday overview pills */}
                 <View style={styles.overviewRow}>
                   {WEEKDAYS.map((day) => {
                     const hasSlots = availability.some(
@@ -395,7 +386,6 @@ export default function AvailabilityScreen() {
                   })}
                 </View>
 
-                {/* Day groups */}
                 {availabilityByDay.map((day) => (
                   <View key={day.value} style={styles.dayCard}>
                     <View style={styles.dayCardHeader}>
@@ -491,7 +481,6 @@ export default function AvailabilityScreen() {
               Configure o dia e o período de atendimento.
             </Text>
 
-            {/* Dia da semana */}
             <Text style={styles.modalFieldLabel}>Dia da semana</Text>
             <ScrollView
               horizontal
@@ -528,7 +517,6 @@ export default function AvailabilityScreen() {
               })}
             </ScrollView>
 
-            {/* Horários */}
             <View style={styles.timeRow}>
               <View style={styles.timeField}>
                 <Text style={styles.modalFieldLabel}>Início</Text>
@@ -718,7 +706,6 @@ export default function AvailabilityScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.pageBg },
 
@@ -900,7 +887,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   emptyAddBtnText: { color: colors.white, fontSize: 15, fontWeight: "700" },
 
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(10,21,17,0.4)",
@@ -1000,7 +986,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   modalConfirmBtnText: { color: colors.white, fontSize: 15, fontWeight: "700" },
 
-  // Delete Modal
   deleteModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(10,21,17,0.5)",

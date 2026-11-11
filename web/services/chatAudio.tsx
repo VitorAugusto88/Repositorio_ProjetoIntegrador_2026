@@ -33,7 +33,7 @@ export interface ChatAudioRecorder {
   cancel: () => Promise<void>;
 }
 
-// ─── Helper de formatação de tempo (m:ss) ──────────────────────────────────────
+// Helper de formatação de tempo (m:ss)
 export function formatClock(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(total / 60);
@@ -41,7 +41,6 @@ export function formatClock(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// ─── Gravador (nativo) ─────────────────────────────────────────────────────────
 export function useChatAudioRecorder(): ChatAudioRecorder {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
@@ -105,7 +104,6 @@ export function useChatAudioRecorder(): ChatAudioRecorder {
   return { isRecording, durationMs, start, stop, cancel };
 }
 
-// ─── Player inline (nativo) ────────────────────────────────────────────────────
 export function AudioMessage({
   uri,
   mine,

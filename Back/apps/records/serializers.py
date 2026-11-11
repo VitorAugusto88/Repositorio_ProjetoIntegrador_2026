@@ -1,4 +1,3 @@
-# Serializers da Fase 2
 from rest_framework import serializers
 from .models import Document
 from apps.accounts.models import PatientProfile

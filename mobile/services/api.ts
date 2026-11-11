@@ -201,7 +201,7 @@ export interface AdminAppointmentsReportApi {
 
 // Tipagem fiel ao retorno real de GET /api/auth/professionals/
 export interface ProfessionalApiItem {
-  id: string; // UUID do ProfessionalProfile â€” usado no POST /appointments/
+  id: string; // UUID do ProfessionalProfile — usado no POST /appointments/
   user: {
     id: string;
     email: string;
@@ -239,7 +239,7 @@ export interface ProfessionalApiItem {
 export interface AppointmentAvailabilityApiItem {
   id: string;
   professional: string;
-  weekday: number; // Django: 0=Seg, 1=Ter, 2=Qua, 3=Qui, 4=Sex, 5=SÃ¡b, 6=Dom
+  weekday: number; // Django: 0=Seg, 1=Ter, 2=Qua, 3=Qui, 4=Sex, 5=Sáb, 6=Dom
   weekday_display: string;
   start_time: string;
   end_time: string;
@@ -305,8 +305,6 @@ export const normalizeDateToYYYYMMDD = (date?: string): string | undefined => {
   return `${year}${month}${day}`;
 };
 
-
-
 const fetchJson = async (url: string, options: RequestInit = {}) => {
   const response = await fetchWithRefresh(url, options);
   const data = await response.json().catch(() => null);
@@ -321,8 +319,8 @@ const base64UrlDecode = (input: string): string => {
   const pad = base64.length % 4;
   const padded =
     base64 + (pad === 2 ? "==" : pad === 3 ? "=" : pad === 1 ? "===" : "");
-  // '=' fica fora da tabela de propÃ³sito: Ã© padding e deve ser ignorado no loop
-  // (indexOf retorna -1 e o caractere Ã© pulado). IncluÃ­-lo corrompia o Ãºltimo
+  // '=' fica fora da tabela de propósito: é padding e deve ser ignorado no loop
+  // (indexOf retorna -1 e o caractere é pulado). Incluí-lo corrompia o último
   // byte decodificado, quebrando o JSON.parse do token e zerando o role no login.
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -379,8 +377,6 @@ export const resolveMediaUrl = (url?: string | null): string => {
   return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
-// â”€â”€â”€ Token Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 export const saveTokens = async (
   accessToken: string,
   refreshToken: string,
@@ -427,11 +423,9 @@ const createAuthHeaders = async (): Promise<Record<string, string> | null> => {
   };
 };
 
-// â”€â”€â”€ Token Refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// Single-flight: vÃ¡rias requisiÃ§Ãµes que tomam 401 ao mesmo tempo compartilham
-// um Ãºnico refresh. Com ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION, o
-// primeiro refresh invalida o refresh token antigo, entÃ£o refreshes concorrentes
+// Single-flight: várias requisições que tomam 401 ao mesmo tempo compartilham
+// um único refresh. Com ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION, o
+// primeiro refresh invalida o refresh token antigo, então refreshes concorrentes
 // com o token antigo falhariam.
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -452,7 +446,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
       const newAccess = data?.access;
 
       if (!response.ok || !newAccess) {
-        // Refresh expirado/invÃ¡lido â€” limpa a sessÃ£o para forÃ§ar novo login.
+        // Refresh expirado/inválido — limpa a sessão para forçar novo login.
         await clearTokens();
         return null;
       }
@@ -470,8 +464,8 @@ const refreshAccessToken = async (): Promise<string | null> => {
   return refreshPromise;
 };
 
-// Faz o fetch e, ao receber 401 numa requisiÃ§Ã£o autenticada, renova o token uma
-// vez e refaz a chamada. RequisiÃ§Ãµes pÃºblicas (sem Authorization) passam direto.
+// Faz o fetch e, ao receber 401 numa requisição autenticada, renova o token uma
+// vez e refaz a chamada. Requisições públicas (sem Authorization) passam direto.
 const fetchWithRefresh = async (
   url: string,
   options: RequestInit = {},
@@ -492,8 +486,6 @@ const fetchWithRefresh = async (
     headers: { ...headers, Authorization: `Bearer ${newToken}` },
   });
 };
-
-// â”€â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const login = async (
   credentials: LoginCredentials,
@@ -548,12 +540,10 @@ export const logout = async (): Promise<ApiResult> => {
   return { ok: true };
 };
 
-// â”€â”€â”€ Admin User Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// GET /api/auth/admin/users/ â€” listar todos os usuÃ¡rios da clÃ­nica
+// GET /api/auth/admin/users/ — listar todos os usuários da clínica
 export const getAdminUsers = async (): Promise<ApiResult<any[]>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/admin/users/`,
     { method: "GET", headers },
@@ -564,58 +554,16 @@ export const getAdminUsers = async (): Promise<ApiResult<any[]>> => {
   return { ok: true, data: results };
 };
 
-// GET /api/auth/admin/users/<id>/ â€” detalhes de um usuÃ¡rio
-export const getAdminUser = async (userId: string): Promise<ApiResult> => {
-  const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
-  const { response, data } = await fetchJson(
-    `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(userId)}/`,
-    { method: "GET", headers },
-  );
-  if (!response.ok) return { ok: false, error: normalizeError(data), data };
-  return { ok: true, data };
-};
-
-// PATCH /api/auth/admin/users/<id>/ â€” editar dados bÃ¡sicos do usuÃ¡rio
-export const updateAdminUser = async (
-  userId: string,
-  payload: { full_name?: string; phone?: string; email?: string },
-): Promise<ApiResult> => {
-  const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
-  const { response, data } = await fetchJson(
-    `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(userId)}/`,
-    { method: "PATCH", headers, body: JSON.stringify(payload) },
-  );
-  if (!response.ok) return { ok: false, error: normalizeError(data), data };
-  return { ok: true, data };
-};
-
-// PATCH /api/auth/admin/users/<id>/status/ â€” ativar/desativar usuÃ¡rio
+// PATCH /api/auth/admin/users/<id>/status/ — ativar/desativar usuário
 export const toggleUserStatus = async (
   userId: string,
   isActive: boolean,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(userId)}/status/`,
     { method: "PATCH", headers, body: JSON.stringify({ is_active: isActive }) },
-  );
-  if (!response.ok) return { ok: false, error: normalizeError(data), data };
-  return { ok: true, data };
-};
-
-// PATCH /api/auth/admin/users/<id>/role/ â€” alterar papel do usuÃ¡rio
-export const changeUserRole = async (
-  userId: string,
-  role: string,
-): Promise<ApiResult> => {
-  const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
-  const { response, data } = await fetchJson(
-    `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(userId)}/role/`,
-    { method: "PATCH", headers, body: JSON.stringify({ role }) },
   );
   if (!response.ok) return { ok: false, error: normalizeError(data), data };
   return { ok: true, data };
@@ -639,7 +587,7 @@ export const deleteAdminUser = async (
   return { ok: true, data };
 };
 
-// POST /api/auth/admin/users/professionals/ â€” criar profissional via admin
+// POST /api/auth/admin/users/professionals/ — criar profissional via admin
 export const createProfessionalAsAdmin = async (payload: {
   email: string;
   full_name: string;
@@ -656,7 +604,7 @@ export const createProfessionalAsAdmin = async (payload: {
   // Sem foto: mantem o envio JSON simples de sempre.
   if (!photo) {
     const headers = await createAuthHeaders();
-    if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+    if (!headers) return { ok: false, error: "Usuário não autenticado." };
     const { response, data } = await fetchJson(
       `${API_BASE_URL}/auth/admin/users/professionals/`,
       { method: "POST", headers, body: JSON.stringify(rest) },
@@ -668,7 +616,7 @@ export const createProfessionalAsAdmin = async (payload: {
   // Com foto: multipart. Nunca definir Content-Type manualmente — o boundary
   // precisa ser gerado automaticamente (mesmo padrao de uploadDocument).
   const token = await getAccessToken();
-  if (!token) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!token) return { ok: false, error: "Usuário não autenticado." };
 
   const formData = new FormData();
   Object.entries(rest).forEach(([key, value]) => {
@@ -697,7 +645,7 @@ export const createProfessionalAsAdmin = async (payload: {
   return { ok: true, data };
 };
 
-// POST /api/auth/admin/users/patients/ â€” criar paciente via admin (requer autenticaÃ§Ã£o)
+// POST /api/auth/admin/users/patients/ — criar paciente via admin (requer autenticação)
 export const createPatientAsAdmin = async (payload: {
   email: string;
   full_name: string;
@@ -713,7 +661,7 @@ export const createPatientAsAdmin = async (payload: {
   send_invite?: boolean;
 }): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   if (__DEV__) console.log("birth_date (raw):", payload.birth_date);
   payload.birth_date = normalizeDateToYYYYMMDD(payload.birth_date);
   const { response, data } = await fetchJson(
@@ -732,7 +680,7 @@ export const createPatientAsAdmin = async (payload: {
 
 export const getMe = async (): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const response = await fetchWithRefresh(`${API_BASE_URL}/auth/me/`, {
     method: "GET",
     headers,
@@ -742,14 +690,14 @@ export const getMe = async (): Promise<ApiResult> => {
   return { ok: true, data };
 };
 
-// Atualiza full_name e phone do usuÃ¡rio autenticado via PATCH /api/auth/me/
-// O phone pertence ao model User â€” este Ã© o endpoint correto para salvÃ¡-lo
+// Atualiza full_name e phone do usuário autenticado via PATCH /api/auth/me/
+// O phone pertence ao model User — este é o endpoint correto para salvá-lo
 export const updateMe = async (payload: {
   full_name?: string;
   phone?: string;
 }): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(`${API_BASE_URL}/auth/me/`, {
     method: "PATCH",
     headers,
@@ -759,9 +707,7 @@ export const updateMe = async (payload: {
   return { ok: true, data };
 };
 
-// â”€â”€â”€ ClÃ­nicas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// Usado na tela de cadastro para listar clÃ­nicas disponÃ­veis (sem autenticaÃ§Ã£o)
+// Usado na tela de cadastro para listar clínicas disponíveis (sem autenticação)
 export const getClinics = async (): Promise<ApiResult<ClinicApiItem[]>> => {
   const { response, data } = await fetchJson(`${API_BASE_URL}/clinics/`, {
     method: "GET",
@@ -773,13 +719,11 @@ export const getClinics = async (): Promise<ApiResult<ClinicApiItem[]>> => {
   return { ok: true, data: results };
 };
 
-// â”€â”€â”€ Perfil do Paciente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 export const getPatientProfile = async (
   userId: string, // user.id de GET /api/auth/me/
 ): Promise<ApiResult<PatientProfileApiItem>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/patients/${encodeURIComponent(userId)}/profile/`,
     { method: "GET", headers },
@@ -822,7 +766,7 @@ export const updatePatientProfile = async (
   payload: Record<string, any>,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/patients/${encodeURIComponent(userId)}/profile/`,
     { method: "PATCH", headers, body: JSON.stringify(payload) },
@@ -877,13 +821,13 @@ export const getMyAssignedProfessional = async (): Promise<
 };
 
 // GET /api/auth/<clinicId>/patients/
-// Retorna lista de pacientes da clÃ­nica. Admin vÃª todos; psicÃ³logo sÃ³ vÃª os seus.
-// Nota: a rota fica em /api/auth/ (nÃ£o em /api/clinics/) conforme urls.py de accounts.
+// Retorna lista de pacientes da clínica. Admin vê todos; psicólogo só vê os seus.
+// Nota: a rota fica em /api/auth/ (não em /api/clinics/) conforme urls.py de accounts.
 export const getClinicPatients = async (
   clinicId: string,
 ): Promise<ApiResult<any[]>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   // A lista e paginada (DRF PageNumberPagination, PAGE_SIZE=20). Buscar apenas
   // a primeira pagina escondia todo paciente a partir do 21o: ele sumia da lista
   // do psicologo e dos seletores de paciente (agendar, documentos), sem nenhum
@@ -910,14 +854,14 @@ export const getClinicPatients = async (
 export const getPatientsByClinic = getClinicPatients;
 
 // Atualiza campos do model User (full_name, phone) via PATCH /api/auth/me/
-// O endpoint /api/auth/users/:id/ nÃ£o existe â€” o correto Ã© /api/auth/me/
-// que jÃ¡ aceita full_name e phone do usuÃ¡rio autenticado
+// O endpoint /api/auth/users/:id/ não existe — o correto é /api/auth/me/
+// que já aceita full_name e phone do usuário autenticado
 export const updateUser = async (
-  _userId: string, // mantido para nÃ£o quebrar chamadas existentes
+  _userId: string, // mantido para não quebrar chamadas existentes
   payload: { full_name?: string; phone?: string },
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(`${API_BASE_URL}/auth/me/`, {
     method: "PATCH",
     headers,
@@ -927,13 +871,11 @@ export const updateUser = async (
   return { ok: true, data };
 };
 
-// â”€â”€â”€ Profissionais â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 export const getPsychologists = async (): Promise<
   ApiResult<ProfessionalApiItem[]>
 > => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/professionals/`,
     { method: "GET", headers },
@@ -944,7 +886,7 @@ export const getPsychologists = async (): Promise<
   return { ok: true, data: results };
 };
 
-// PATCH /api/auth/professionals/<id>/  â€” atualiza crp, specialty, bio do profissional
+// PATCH /api/auth/professionals/<id>/  — atualiza crp, specialty, bio do profissional
 export const updateProfessionalProfile = async (
   professionalId: string,
   payload: {
@@ -955,7 +897,7 @@ export const updateProfessionalProfile = async (
   },
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/professionals/${encodeURIComponent(professionalId)}/`,
     { method: "PATCH", headers, body: JSON.stringify(payload) },
@@ -983,29 +925,29 @@ export const deleteAvailability = async (
   availabilityId: string,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const token = await getAccessToken();
   const url = `${API_BASE_URL}/appointments/availability/${encodeURIComponent(availabilityId)}/`;
   if (__DEV__) {
-    console.log("ðŸ—‘ï¸ DELETE availability:", url);
+    console.log("🗑️ DELETE availability:", url);
   }
   const response = await fetchWithRefresh(url, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
   if (__DEV__) {
-    console.log("ðŸ“¦ DELETE response status:", response.status);
+    console.log("📦 DELETE response status:", response.status);
   }
-  // 204 No Content Ã© sucesso â€” nÃ£o tentar .json() numa resposta vazia
+  // 204 No Content é sucesso — não tentar .json() numa resposta vazia
   if (response.status === 204 || response.ok) {
     if (__DEV__) {
-      console.log("âœ… Deletado com sucesso");
+      console.log("✅ Deletado com sucesso");
     }
     return { ok: true };
   }
   const data = await response.json().catch(() => null);
   if (__DEV__) {
-    console.log("âŒ Erro ao deletar:", data);
+    console.log("❌ Erro ao deletar:", data);
   }
   return { ok: false, error: normalizeError(data), data };
 };
@@ -1016,7 +958,7 @@ export const updateAvailability = async (
   payload: { weekday?: number; start_time?: string; end_time?: string },
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/availability/${encodeURIComponent(availabilityId)}/`,
     { method: "PATCH", headers, body: JSON.stringify(payload) },
@@ -1025,13 +967,11 @@ export const updateAvailability = async (
   return { ok: true, data };
 };
 
-// â”€â”€â”€ ClÃ­nicas (Admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 // GET /api/clinics/{clinic_id}/stats/
-// Retorna estatÃ­sticas da clÃ­nica: total_appointments, completed_appointments, etc.
+// Retorna estatísticas da clínica: total_appointments, completed_appointments, etc.
 export const getClinicStats = async (clinicId: string): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/clinics/${encodeURIComponent(clinicId)}/stats/`,
     { method: "GET", headers },
@@ -1041,10 +981,10 @@ export const getClinicStats = async (clinicId: string): Promise<ApiResult> => {
 };
 
 // GET /api/clinics/{clinic_id}/
-// Retorna dados da clÃ­nica: name, address, phone, email, open_from, open_until, etc.
+// Retorna dados da clínica: name, address, phone, email, open_from, open_until, etc.
 export const getClinicData = async (clinicId: string): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/clinics/${encodeURIComponent(clinicId)}/`,
     { method: "GET", headers },
@@ -1054,7 +994,7 @@ export const getClinicData = async (clinicId: string): Promise<ApiResult> => {
 };
 
 // PATCH /api/clinics/{clinic_id}/
-// Atualiza dados da clÃ­nica: name, address, phone, email, open_from, open_until,
+// Atualiza dados da clínica: name, address, phone, email, open_from, open_until,
 // theme_preset ('default'|'blue'|'purple'|'custom'), theme_primary_color (#RRGGBB, só para 'custom')
 export const updateClinic = async (
   clinicId: string,
@@ -1070,7 +1010,7 @@ export const updateClinic = async (
   },
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/clinics/${encodeURIComponent(clinicId)}/`,
     { method: "PATCH", headers, body: JSON.stringify(payload) },
@@ -1200,12 +1140,12 @@ export const updateClinicLogo = (
   );
 
 // GET /api/auth/professionals/?clinic_id={clinic_id}
-// Retorna lista de profissionais de uma clÃ­nica especÃ­fica
+// Retorna lista de profissionais de uma clínica específica
 export const getProfessionalsByClinic = async (
   clinicId: string,
 ): Promise<ApiResult<ProfessionalApiItem[]>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/auth/professionals/?clinic_id=${encodeURIComponent(clinicId)}`,
     { method: "GET", headers },
@@ -1216,14 +1156,12 @@ export const getProfessionalsByClinic = async (
   return { ok: true, data: results };
 };
 
-// â”€â”€â”€ Agendamentos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// GET /api/appointments/<id>/ â€” detalhe completo de uma consulta
+// GET /api/appointments/<id>/ — detalhe completo de uma consulta
 export const getAppointmentDetail = async (
   appointmentId: string,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/${encodeURIComponent(appointmentId)}/`,
     { method: "GET", headers },
@@ -1240,7 +1178,7 @@ export const getAppointments = async (
   patientProfileId?: string,
 ): Promise<ApiResult<AppointmentApiItem[]>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const query = patientProfileId
     ? `?patient=${encodeURIComponent(patientProfileId)}`
     : "";
@@ -1263,7 +1201,7 @@ export const getSessionNote = async (
   appointmentId: string,
 ): Promise<ApiResult<SessionNoteApi>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/${encodeURIComponent(appointmentId)}/notes/`,
     { method: "GET", headers },
@@ -1278,7 +1216,7 @@ export const updateSessionNote = async (
   notes: string,
 ): Promise<ApiResult<SessionNoteApi>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/${encodeURIComponent(appointmentId)}/notes/`,
     {
@@ -1301,7 +1239,7 @@ export const getProfessionalSummary = async (): Promise<
   }>
 > => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/summary/`,
     {
@@ -1314,8 +1252,8 @@ export const getProfessionalSummary = async (): Promise<
 };
 
 export const createAppointment = async (
-  professionalId: string, // item.id do ProfessionalProfile â€” UUID obrigatÃ³rio
-  scheduledAt: string, // ex: "2025-06-15T10:00:00-03:00" â€” formato ISO 8601 com timezone obrigatÃ³rio
+  professionalId: string, // item.id do ProfessionalProfile — UUID obrigatório
+  scheduledAt: string, // ex: "2025-06-15T10:00:00-03:00" — formato ISO 8601 com timezone obrigatório
   durationMinutes = 50,
   options: {
     patientId?: string;
@@ -1325,9 +1263,9 @@ export const createAppointment = async (
   } = {},
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
 
-  // Garante formato ISO 8601 com timezone â€” backend rejeita sem timezone
+  // Garante formato ISO 8601 com timezone — backend rejeita sem timezone
   const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(scheduledAt);
   const scheduledAtUtc = hasTimezone ? scheduledAt : `${scheduledAt}Z`;
 
@@ -1377,7 +1315,7 @@ export const createAppointment = async (
   }
 
   if (__DEV__) {
-    console.log("âœ… Agendamento criado com sucesso");
+    console.log("✅ Agendamento criado com sucesso");
   }
   return { ok: true, data };
 };
@@ -1388,7 +1326,7 @@ export const cancelAppointment = async (
   reason?: string,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/${encodeURIComponent(appointmentId)}/cancel/`,
     {
@@ -1410,7 +1348,7 @@ export const updateAppointmentStatus = async (
   extra?: { completed_at?: string; scheduled_at?: string },
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
 
   const url = `${API_BASE_URL}/appointments/${encodeURIComponent(appointmentId)}/`;
   const payload: Record<string, any> = { status };
@@ -1419,7 +1357,7 @@ export const updateAppointmentStatus = async (
   const body = JSON.stringify(payload);
 
   if (__DEV__) {
-    console.log(`ðŸ“¤ API PATCH ${url}`, { status });
+    console.log(`📤 API PATCH ${url}`, { status });
   }
 
   const { response, data } = await fetchJson(url, {
@@ -1429,19 +1367,19 @@ export const updateAppointmentStatus = async (
   });
 
   if (__DEV__) {
-    console.log(`ðŸ“¥ Response status: ${response.status}`, { data });
+    console.log(`📥 Response status: ${response.status}`, { data });
   }
 
   if (!response.ok) {
     const error = normalizeError(data);
     if (__DEV__) {
-      console.error(`âŒ Error: ${error}`, data);
+      console.error(`❌ Error: ${error}`, data);
     }
     return { ok: false, error, data };
   }
 
   if (__DEV__) {
-    console.log(`âœ… Appointment updated successfully =---------`);
+    console.log(`✅ Appointment updated successfully =---------`);
     console.log(body);
   }
   return { ok: true, data };
@@ -1451,7 +1389,7 @@ export const getPsychologistAvailability = async (
   psychologistId: string,
 ): Promise<ApiResult<AppointmentAvailabilityApiItem[]>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const query = `?professional=${encodeURIComponent(psychologistId)}`;
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/availability/${query}`,
@@ -1463,13 +1401,6 @@ export const getPsychologistAvailability = async (
   return { ok: true, data: availability };
 };
 
-// GET /api/appointments/availability/?professional=<uuid> â€” alias para getPsychologistAvailability
-export const getAvailability = async (
-  professionalId: string,
-): Promise<ApiResult<AppointmentAvailabilityApiItem[]>> => {
-  return getPsychologistAvailability(professionalId);
-};
-
 // POST /api/appointments/availability/  { weekday, start_time, end_time, blocked: true }
 export const createAvailabilityBlock = async (payload: {
   professional: string;
@@ -1479,7 +1410,7 @@ export const createAvailabilityBlock = async (payload: {
   blocked: boolean;
 }): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/appointments/availability/`,
     {
@@ -1492,13 +1423,11 @@ export const createAvailabilityBlock = async (payload: {
   return { ok: true, data };
 };
 
-// â”€â”€â”€ Chat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 export const getConversations = async (): Promise<
   ApiResult<ConversationApiItem[]>
 > => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/conversations/`,
     { method: "GET", headers },
@@ -1513,7 +1442,7 @@ export const getMessagesWithPsychologist = async (
   psychologistId: string,
 ): Promise<ApiResult<ChatMessageApiItem[]>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/messages/?with=${encodeURIComponent(psychologistId)}`,
     { method: "GET", headers },
@@ -1530,7 +1459,7 @@ export const sendChatMessage = async (
   appointmentId?: string,
 ): Promise<ApiResult<ChatMessageApiItem>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(`${API_BASE_URL}/chat/messages/`, {
     method: "POST",
     headers,
@@ -1545,18 +1474,18 @@ export const sendChatMessage = async (
   return { ok: true, data };
 };
 
-// POST /api/chat/messages/ (multipart) â€” enviar anexo de imagem, Ã¡udio ou
-// documento (PDF/DOC/DOCX, os mesmos tipos aceitos no mÃ³dulo de documentos).
-// NÃ£o enviamos message_type: o backend infere pela extensÃ£o do arquivo.
+// POST /api/chat/messages/ (multipart) — enviar anexo de imagem, áudio ou
+// documento (PDF/DOC/DOCX, os mesmos tipos aceitos no módulo de documentos).
+// Não enviamos message_type: o backend infere pela extensão do arquivo.
 export const sendChatAttachment = async (
   receiverId: string, // user.id do outro lado
   file: { uri: string; name: string; type: string },
   appointmentId?: string,
-  durationMs?: number, // duraÃ§Ã£o real do Ã¡udio medida na gravaÃ§Ã£o
+  durationMs?: number, // duração real do áudio medida na gravação
 ): Promise<ApiResult<ChatMessageApiItem>> => {
   try {
     const token = await getAccessToken();
-    if (!token) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+    if (!token) return { ok: false, error: "Usuário não autenticado." };
 
     const formData = new FormData();
     formData.append("receiver", receiverId);
@@ -1565,8 +1494,8 @@ export const sendChatAttachment = async (
       formData.append("media_duration_ms", String(Math.round(durationMs)));
     }
 
-    // No Expo Web o objeto { uri, name, type } do RN nÃ£o Ã© entendido pelo browser:
-    // Ã© preciso buscar o URI como Blob real antes de anexar (mesmo padrÃ£o do uploadDocument).
+    // No Expo Web o objeto { uri, name, type } do RN não é entendido pelo browser:
+    // é preciso buscar o URI como Blob real antes de anexar (mesmo padrão do uploadDocument).
     if (Platform.OS === "web") {
       const blobRes = await fetch(file.uri);
       const blob = await blobRes.blob();
@@ -1582,7 +1511,7 @@ export const sendChatAttachment = async (
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        // âš ï¸ NÃ£o definir Content-Type manualmente com FormData â€” o boundary
+        // âš ï¸ Não definir Content-Type manualmente com FormData — o boundary
         // do multipart precisa ser gerado automaticamente.
       },
       body: formData,
@@ -1592,14 +1521,14 @@ export const sendChatAttachment = async (
     if (!res.ok) return { ok: false, error: normalizeError(data), data };
     return { ok: true, data };
   } catch {
-    return { ok: false, error: "NÃ£o foi possÃ­vel enviar o anexo." };
+    return { ok: false, error: "Não foi possível enviar o anexo." };
   }
 };
 
-// GET /api/chat/contacts/ â€” listar contatos disponÃ­veis para nova conversa
+// GET /api/chat/contacts/ — listar contatos disponíveis para nova conversa
 export const getChatContacts = async (): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(`${API_BASE_URL}/chat/contacts/`, {
     method: "GET",
     headers,
@@ -1608,14 +1537,14 @@ export const getChatContacts = async (): Promise<ApiResult> => {
   return { ok: true, data };
 };
 
-// GET /api/chat/presence/?with=<user_id> â€” saber se o outro usuÃ¡rio estÃ¡ online.
-// Fonte confiÃ¡vel (modelo Presence no banco): funciona mesmo quando o handshake
-// de presenÃ§a em tempo real do WebSocket nÃ£o chega.
+// GET /api/chat/presence/?with=<user_id> — saber se o outro usuário está online.
+// Fonte confiável (modelo Presence no banco): funciona mesmo quando o handshake
+// de presença em tempo real do WebSocket não chega.
 export const getContactPresence = async (
   userId: string,
 ): Promise<ApiResult<{ online: boolean }>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/presence/?with=${encodeURIComponent(userId)}`,
     { method: "GET", headers },
@@ -1624,10 +1553,10 @@ export const getContactPresence = async (
   return { ok: true, data };
 };
 
-// PATCH /api/chat/messages/read/?with=<user_id> â€” marcar mensagens como lidas
+// PATCH /api/chat/messages/read/?with=<user_id> — marcar mensagens como lidas
 export const markMessagesRead = async (userId: string): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/messages/read/?with=${encodeURIComponent(userId)}`,
     { method: "PATCH", headers },
@@ -1636,15 +1565,15 @@ export const markMessagesRead = async (userId: string): Promise<ApiResult> => {
   return { ok: true, data };
 };
 
-// DELETE /api/chat/messages/<id>/?for_everyone=<bool> â€” apagar uma mensagem.
-// forEveryone=true: sÃ³ o remetente e sÃ³ enquanto nÃ£o lida (apaga dos dois lados).
-// forEveryone=false: oculta apenas para o usuÃ¡rio logado.
+// DELETE /api/chat/messages/<id>/?for_everyone=<bool> — apagar uma mensagem.
+// forEveryone=true: só o remetente e só enquanto não lida (apaga dos dois lados).
+// forEveryone=false: oculta apenas para o usuário logado.
 export const deleteChatMessage = async (
   messageId: string,
   forEveryone: boolean,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/messages/${encodeURIComponent(messageId)}/?for_everyone=${forEveryone ? "true" : "false"}`,
     { method: "DELETE", headers },
@@ -1653,13 +1582,13 @@ export const deleteChatMessage = async (
   return { ok: true, data };
 };
 
-// DELETE /api/chat/messages/clear/?with=<user_id> â€” apagar a conversa apenas
-// para o usuÃ¡rio logado (o outro lado mantÃ©m as mensagens).
+// DELETE /api/chat/messages/clear/?with=<user_id> — apagar a conversa apenas
+// para o usuário logado (o outro lado mantém as mensagens).
 export const clearChatConversation = async (
   userId: string,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/messages/clear/?with=${encodeURIComponent(userId)}`,
     { method: "DELETE", headers },
@@ -1668,11 +1597,11 @@ export const clearChatConversation = async (
   return { ok: true, data };
 };
 
-// DELETE /api/chat/messages/clear-all/ â€” apagar todas as mensagens de todas as
-// conversas apenas para o usuÃ¡rio logado.
+// DELETE /api/chat/messages/clear-all/ — apagar todas as mensagens de todas as
+// conversas apenas para o usuário logado.
 export const clearAllChatMessages = async (): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/chat/messages/clear-all/`,
     { method: "DELETE", headers },
@@ -1681,10 +1610,10 @@ export const clearAllChatMessages = async (): Promise<ApiResult> => {
   return { ok: true, data };
 };
 
-// DELETE /api/notifications/ â€” apagar todas as notificaÃ§Ãµes in-app do usuÃ¡rio.
+// DELETE /api/notifications/ — apagar todas as notificações in-app do usuário.
 export const deleteAllNotifications = async (): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(`${API_BASE_URL}/notifications/`, {
     method: "DELETE",
     headers,
@@ -1693,12 +1622,12 @@ export const deleteAllNotifications = async (): Promise<ApiResult> => {
   return { ok: true, data };
 };
 
-// GET /api/notifications/unread/ â€” obter contagem de notificaÃ§Ãµes nÃ£o lidas
+// GET /api/notifications/unread/ — obter contagem de notificações não lidas
 export const getUnreadNotifications = async (): Promise<
   ApiResult<{ unread_count: number }>
 > => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/notifications/unread/`,
     { method: "GET", headers },
@@ -1711,7 +1640,7 @@ export const getNotifications = async (): Promise<
   ApiResult<NotificationApiItem[]>
 > => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
 
   // A lista de notificacoes e paginada (DRF PageNumberPagination, PAGE_SIZE=20).
   // Buscar apenas a primeira pagina deixava avisos antigos nao lidos invisiveis:
@@ -1739,7 +1668,7 @@ export const markNotificationRead = async (
   notificationId: string,
 ): Promise<ApiResult<NotificationApiItem>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}/notifications/${encodeURIComponent(notificationId)}/read/`,
     { method: "PATCH", headers },
@@ -1809,7 +1738,7 @@ const getReport = async <T>(
   params: ReportPeriodQuery = {},
 ): Promise<ApiResult<T>> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   const { response, data } = await fetchJson(
     `${API_BASE_URL}${path}${createQueryString(params)}`,
     { method: "GET", headers },
@@ -1855,11 +1784,11 @@ export const downloadReportFile = async (
   filename: string,
 ): Promise<ApiResult> => {
   const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
+  if (!headers) return { ok: false, error: "Usuário não autenticado." };
   if (Platform.OS !== "web") {
     return {
       ok: false,
-      error: "ExportaÃ§Ã£o de arquivos disponÃ­vel no navegador.",
+      error: "Exportação de arquivos disponível no navegador.",
     };
   }
 
@@ -1883,34 +1812,6 @@ export const downloadReportFile = async (
   URL.revokeObjectURL(url);
   return { ok: true };
 };
-
-export const markMessageRead = async (
-  messageId: string,
-): Promise<ApiResult> => {
-  const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
-  const { response, data } = await fetchJson(
-    `${API_BASE_URL}/chat/messages/${encodeURIComponent(messageId)}/read/`,
-    { method: "PATCH", headers },
-  );
-  if (!response.ok) return { ok: false, error: normalizeError(data), data };
-  return { ok: true, data };
-};
-
-export const getUnreadCount = async (): Promise<
-  ApiResult<{ unread_count: number }>
-> => {
-  const headers = await createAuthHeaders();
-  if (!headers) return { ok: false, error: "UsuÃ¡rio nÃ£o autenticado." };
-  const { response, data } = await fetchJson(`${API_BASE_URL}/chat/unread/`, {
-    method: "GET",
-    headers,
-  });
-  if (!response.ok) return { ok: false, error: normalizeError(data), data };
-  return { ok: true, data };
-};
-
-// â”€â”€â”€ Documentos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // GET /api/records/documents/  (opcional: scope=avulsos|com_paciente|arquivados, search, patient)
 // Retorna a lista já desempacotada (aceita array puro ou paginado { results }).
@@ -1984,7 +1885,7 @@ export const uploadDocument = async (
   title: string,
   fileType: string,
   file: { uri: string; name: string; type: string },
-  patientProfileId?: string, // profile.id â€” obrigatÃ³rio quando enviado pelo psicÃ³logo
+  patientProfileId?: string, // profile.id — obrigatório quando enviado pelo psicólogo
 ) => {
   try {
     const token = await getAccessToken();
@@ -1993,23 +1894,23 @@ export const uploadDocument = async (
     formData.append("title", title);
     formData.append("file_type", fileType);
 
-    // PsicÃ³logo/admin precisa informar o PatientProfile â€” backend exige o campo 'patient'
+    // Psicólogo/admin precisa informar o PatientProfile — backend exige o campo 'patient'
     if (patientProfileId) {
       formData.append("patient", patientProfileId);
     }
 
-    // No Expo Web, o browser nÃ£o entende o objeto { uri, name, type } do RN.
-    // Ã‰ necessÃ¡rio fazer fetch do URI para obter um Blob real antes de anexar.
+    // No Expo Web, o browser não entende o objeto { uri, name, type } do RN.
+    // É necessário fazer fetch do URI para obter um Blob real antes de anexar.
     if (Platform.OS === "web") {
       const blobRes = await fetch(file.uri);
       const blob = await blobRes.blob();
-      // File estende Blob e adiciona o nome â€” necessÃ¡rio para o Django ler o filename
+      // File estende Blob e adiciona o nome — necessário para o Django ler o filename
       const fileObj = new File([blob], file.name, {
         type: blob.type || file.type || "application/octet-stream",
       });
       formData.append("file", fileObj);
     } else {
-      // React Native nativo: o objeto { uri, name, type } Ã© reconhecido pelo fetch nativo
+      // React Native nativo: o objeto { uri, name, type } é reconhecido pelo fetch nativo
       formData.append("file", file as any);
     }
 
@@ -2017,7 +1918,7 @@ export const uploadDocument = async (
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        // âš ï¸ NÃƒO definir Content-Type manualmente com FormData â€”
+        // ⚠️ NÃO definir Content-Type manualmente com FormData —
         // o browser precisa gerar o boundary do multipart/form-data automaticamente
       },
       body: formData,
@@ -2057,9 +1958,7 @@ export const deleteDocument = async (id: string) => {
   }
 };
 
-// â”€â”€â”€ JWT Utils â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// POST /api/auth/password/reset/ â€” solicitar recuperaÃ§Ã£o de senha (rota pÃºblica)
+// POST /api/auth/password/reset/ — solicitar recuperação de senha (rota pública)
 export const requestPasswordReset = async (
   email: string,
 ): Promise<ApiResult> => {
@@ -2076,7 +1975,7 @@ export const requestPasswordReset = async (
   return { ok: true, data };
 };
 
-// POST /api/auth/password/reset/confirm/ â€” confirmar nova senha (rota pÃºblica)
+// POST /api/auth/password/reset/confirm/ — confirmar nova senha (rota pública)
 export const confirmPasswordReset = async (payload: {
   uid: string;
   token: string;
@@ -2095,7 +1994,7 @@ export const confirmPasswordReset = async (payload: {
   return { ok: true, data };
 };
 
-// POST /api/auth/password/change/ â€” troca a senha do usuario logado (autenticado).
+// POST /api/auth/password/change/ — troca a senha do usuario logado (autenticado).
 // Recebe a senha atual + a nova; sem e-mail. A sessao atual continua valida.
 export const changePassword = async (payload: {
   current_password: string;
@@ -2111,7 +2010,7 @@ export const changePassword = async (payload: {
   return { ok: true, data };
 };
 
-// POST /api/auth/password/invite/confirm/ â€” primeiro acesso via convite (rota pÃºblica)
+// POST /api/auth/password/invite/confirm/ — primeiro acesso via convite (rota pública)
 export const confirmInvite = async (payload: {
   uid: string;
   token: string;
@@ -2135,12 +2034,6 @@ export const getRoleFromToken = (token: string): string => {
   return payload?.role?.toLowerCase() ?? "";
 };
 
-export const getClinicIdFromToken = (token: string): string | null => {
-  const payload = parseJwt(token);
-  return payload?.clinic_id ?? null;
-};
-
-// ─── Tipos de arquivo aceitos ────────────────────────────────────────────────
 // Espelham apps/uploads.py no backend, que revalida extensão E conteúdo
 // (assinatura do arquivo). Usados para filtrar o seletor de arquivos, de modo
 // que o usuário não escolha algo que o servidor vai recusar depois.
@@ -2152,9 +2045,7 @@ export const DOCUMENT_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-export const DOCUMENT_EXTENSIONS_LABEL = "PDF, PNG, JPG, DOC ou DOCX";
-
-// ─── Consulta com o dia ultrapassado ─────────────────────────────────────────
+// Consulta com o dia ultrapassado
 // Estado DERIVADO (espelha Appointment.is_overdue do backend): consulta ainda
 // em aberto cujo DIA já passou. Regras:
 //   - comparação por DIA local, não por horário — não aparece antes do dia da

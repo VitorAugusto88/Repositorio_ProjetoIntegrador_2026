@@ -49,7 +49,7 @@ interface CalendarAppointment {
   scheduledAt: string; // ISO original — usado para saber se o dia já passou
 }
 
-// ─── Cores semânticas fixas (status de consulta, não mudam com a paleta) ─────
+// Cores semânticas fixas (status de consulta, não mudam com a paleta)
 const BLUE_LIGHT = "#eaf1ff";
 const ORANGE_LIGHT = "#fef3e8";
 
@@ -220,7 +220,6 @@ export default function PsychologistCalendarScreen() {
 
   useEffect(() => {
     loadAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   React.useEffect(() => {
@@ -466,7 +465,6 @@ export default function PsychologistCalendarScreen() {
               </View>
             </View>
 
-            {/* ── Calendário mensal ── */}
             <View style={styles.calendarCard}>
               <View style={styles.monthNav}>
                 <TouchableOpacity style={styles.navBtn} onPress={prevMonth} activeOpacity={0.7}>
@@ -564,7 +562,6 @@ export default function PsychologistCalendarScreen() {
               </View>
             </View>
 
-            {/* ── Consultas do dia selecionado ── */}
             <Text style={styles.sectionTitle}>
               {selectedDate ? formatDayLabel(selectedDate) : "Consultas do dia"}
             </Text>

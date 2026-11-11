@@ -43,7 +43,7 @@ interface Appointment {
   roomName: string | null;
 }
 
-// FIX 1: normalizeAppointment agora extrai data/hora pelo timezone local
+// normalizeAppointment agora extrai data/hora pelo timezone local
 // e mapeia professional_detail para pegar o nome correto do psicólogo
 const normalizeAppointment = (
   item: AppointmentApiItem,
@@ -68,7 +68,7 @@ const normalizeAppointment = (
   const status = (statusMap[item.status ?? ""] ??
     "agendada") as AppointmentStatus;
 
-  // BUG 2 FIX: Usar mapa de profissionais para resolver UUID → nome
+  // Usar mapa de profissionais para resolver UUID → nome
   const professionalId = item.professional ?? "";
   const psychologistName =
     profMap?.[professionalId] ||
@@ -171,12 +171,11 @@ export default function ConsultasScreen() {
   const [loadingAppointments, setLoadingAppointments] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filtro de status
   const [activeFilter, setActiveFilter] = useState<AppointmentStatus | "todas">(
     "todas",
   );
 
-  // FIX 1: Estados do modal de cancelamento (substitui Alert.prompt que não funciona no Android)
+  // Estados do modal de cancelamento (substitui Alert.prompt que não funciona no Android)
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelAppointmentId, setCancelAppointmentId] = useState<string>("");
   const [cancelReason, setCancelReason] = useState("");
@@ -188,7 +187,7 @@ export default function ConsultasScreen() {
     const loadAppointments = async () => {
       setLoadingAppointments(true);
 
-      // ─── BUG 2 FIX: Load psychologists first to build profMap UUID→name
+      // Load psychologists first to build profMap UUID→name
       const profsResult = await getPsychologists();
       const profMap: Record<string, string> = {};
       if (profsResult.ok && Array.isArray(profsResult.data)) {
@@ -234,7 +233,6 @@ export default function ConsultasScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  // ─── FEATURE 2: Pull-to-refresh ───────────────────────────────────────────
   const onRefresh = async () => {
     setRefreshing(true);
 
@@ -305,7 +303,7 @@ export default function ConsultasScreen() {
     };
   }, [appointments]);
 
-  // FIX 2: formatDate usa o date local (já normalizado), sem forçar T12:00:00 desnecessário
+  // formatDate usa o date local (já normalizado), sem forçar T12:00:00 desnecessário
   const formatDate = (date: string) =>
     new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
@@ -319,14 +317,14 @@ export default function ConsultasScreen() {
     return appointment.status === "agendada";
   };
 
-  // FIX 1: handleCancelAppointment agora abre modal em vez de Alert.prompt
+  // handleCancelAppointment agora abre modal em vez de Alert.prompt
   const handleCancelAppointment = (appointmentId: string) => {
     setCancelAppointmentId(appointmentId);
     setCancelReason("");
     setCancelModalVisible(true);
   };
 
-  // FIX 1: submitCancel executa a chamada de API a partir do modal
+  // submitCancel executa a chamada de API a partir do modal
   const submitCancel = async () => {
     if (!cancelReason.trim()) {
       showAlert("Erro", "Motivo é obrigatório.");
@@ -414,7 +412,6 @@ export default function ConsultasScreen() {
             subtitle="Voce pode cancelar qualquer consulta ainda agendada."
           />
 
-          {/* Filtros de status */}
           <View style={styles.filterRow}>
             {(
               [
@@ -579,7 +576,7 @@ export default function ConsultasScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* FIX 1: Modal de Cancelamento — substitui Alert.prompt (iOS only) */}
+      {/* Modal de Cancelamento — substitui Alert.prompt (iOS only) */}
       <Modal
         visible={cancelModalVisible}
         transparent

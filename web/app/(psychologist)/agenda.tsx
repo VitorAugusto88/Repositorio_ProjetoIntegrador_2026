@@ -49,7 +49,7 @@ interface WeeklyAppointment {
   scheduledAt: string; // ISO original — usado para saber se o dia já passou
 }
 
-// ─── Cores semânticas fixas (status de consulta, não mudam com a paleta) ─────
+// Cores semânticas fixas (status de consulta, não mudam com a paleta)
 const BLUE_LIGHT = "#eaf1ff";
 const ORANGE_LIGHT = "#fef3e8";
 
@@ -351,10 +351,10 @@ export default function PsychologistAgendaScreen() {
               .filter((item) => item.scheduled_at)
               .map(toWeeklyAppointment);
 
-            // CORREÇÃO: merge que protege o item recém-atualizado
+            // merge que protege o item recém-atualizado
             // Se o backend ainda retornar o status antigo (race condition),
             // mantém o newStatus que confirmamos via 200 OK
-            setAppointments((current) => {
+            setAppointments(() => {
               return freshAppointments.map((fetched) => {
                 if (fetched.id === updatedId) {
                   const backendReflected = fetched.status === newStatus;
