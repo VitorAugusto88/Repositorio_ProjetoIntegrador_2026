@@ -40,15 +40,47 @@ class CustomTokenObtainSerializer(TokenObtainPairSerializer):
         return super().validate(attrs)
 
 
+def get_user_photo_url(user, request=None):
+    """
+    Imagem que representa o usuario em qualquer tela (avatar).
+
+    Cada perfil e responsavel pela propria imagem: paciente e psicologo usam a
+    foto do seu perfil; o administrador representa a clinica, entao usa a logo
+    da clinica. Sem imagem, retorna None e o frontend mostra as iniciais.
+    """
+    image = None
+    try:
+        if user.is_patient:
+            image = user.patient_profile.photo
+        elif user.is_professional:
+            image = user.professional_profile.photo
+        elif user.is_admin and user.clinic_id:
+            image = user.clinic.logo
+    except Exception:
+        # Perfil ainda nao criado (ex.: usuario recem-convidado).
+        return None
+
+    if not image:
+        return None
+    try:
+        url = image.url
+    except Exception:
+        return None
+    return request.build_absolute_uri(url) if request else url
+
+
 class UserSerializer(serializers.ModelSerializer):
     patient_profile_id = serializers.SerializerMethodField()
+    # URL absoluta da imagem do perfil (foto propria ou logo da clinica para o
+    # admin) — usada nos avatares de todas as telas. None = mostrar iniciais.
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'email', 'full_name', 'phone', 'role',
             'clinic', 'is_active', 'created_at',
-            'patient_profile_id',
+            'patient_profile_id', 'photo_url',
         ]
         read_only_fields = ['id', 'email', 'role', 'clinic', 'is_active', 'created_at']
 
@@ -57,6 +89,9 @@ class UserSerializer(serializers.ModelSerializer):
             return str(obj.patient_profile.id)
         except Exception:
             return None
+
+    def get_photo_url(self, obj):
+        return get_user_photo_url(obj, self.context.get('request'))
 
 
 class ProfessionalProfileSerializer(serializers.ModelSerializer):
@@ -172,15 +207,19 @@ def ensure_role_profile(user, profile_data=None):
 class AdminUserSerializer(serializers.ModelSerializer):
     patient_profile = PatientProfileSerializer(read_only=True)
     professional_profile = ProfessionalProfileSerializer(read_only=True)
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'email', 'full_name', 'phone', 'role', 'clinic',
             'is_active', 'created_at', 'updated_at',
-            'patient_profile', 'professional_profile',
+            'patient_profile', 'professional_profile', 'photo_url',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_photo_url(self, obj):
+        return get_user_photo_url(obj, self.context.get('request'))
 
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):

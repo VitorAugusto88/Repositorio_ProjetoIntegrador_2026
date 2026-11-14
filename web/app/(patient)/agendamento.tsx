@@ -24,6 +24,9 @@ import {
   ProfessionalApiItem,
 } from "../../services/api";
 import { showAlert } from "../../services/feedback";
+
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS = [
   "Janeiro",
@@ -398,11 +401,13 @@ export default function ScheduleScreen() {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Agendar Consulta</Text>
-        <View style={{ width: 36 }} />
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Agendar Consulta</Text>
+          <View style={{ width: 36 }} />
+        </View>
       </View>
 
       <ScrollView
@@ -723,6 +728,11 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primary,
       paddingTop: 52,
       paddingBottom: 18,
+    },
+    headerInner: {
+      width: "100%",
+      maxWidth: MAX_WIDTH,
+      alignSelf: "center",
       paddingHorizontal: 20,
       flexDirection: "row",
       alignItems: "center",
@@ -747,7 +757,7 @@ const createStyles = (colors: ThemeColors) =>
       paddingBottom: 48,
       gap: 16,
       width: "100%",
-      maxWidth: 980,
+      maxWidth: MAX_WIDTH,
       alignSelf: "center",
     },
 

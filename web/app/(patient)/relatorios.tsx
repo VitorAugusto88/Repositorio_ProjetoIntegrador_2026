@@ -25,6 +25,9 @@ import {
   ReportSummary,
 } from "../../services/api";
 
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
+
 const BLUE_LIGHT = "#eaf1ff";
 const ORANGE_LIGHT = "#fef3e8";
 
@@ -194,24 +197,26 @@ export default function PatientReportsScreen() {
       <DecorativeBackground />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color={colors.white} />
-        </TouchableOpacity>
-        <View style={styles.headerTextBox}>
-          <Text style={styles.headerEyebrow}>Area do paciente</Text>
-          <Text style={styles.headerTitle}>Relatorios</Text>
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color={colors.white} />
+          </TouchableOpacity>
+          <View style={styles.headerTextBox}>
+            <Text style={styles.headerEyebrow}>Area do paciente</Text>
+            <Text style={styles.headerTitle}>Relatorios</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.iconBtn, exporting && styles.iconBtnDisabled]}
+            onPress={handleExportPdf}
+            disabled={exporting || !report}
+          >
+            {exporting ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Ionicons name="download-outline" size={22} color={colors.white} />
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.iconBtn, exporting && styles.iconBtnDisabled]}
-          onPress={handleExportPdf}
-          disabled={exporting || !report}
-        >
-          {exporting ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Ionicons name="download-outline" size={22} color={colors.white} />
-          )}
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -305,8 +310,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     paddingTop: 56,
     paddingBottom: 24,
-    paddingHorizontal: 24,
     backgroundColor: colors.primary,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
+    paddingHorizontal: 24,
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
@@ -324,7 +334,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerEyebrow: { color: "#bce3d5", fontSize: 13, fontWeight: "700" },
   headerTitle: { color: colors.white, fontSize: 24, fontWeight: "800", marginTop: 2 },
   scroll: { flex: 1 },
-  scrollContent: { padding: 22, paddingBottom: 40, maxWidth: 960, alignSelf: 'center' as const, width: '100%' as const },
+  scrollContent: {
+    padding: 22,
+    paddingBottom: 40,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
+  },
   loadingContainer: { minHeight: 360, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { color: colors.primary, fontWeight: "700" },
   heroCard: {

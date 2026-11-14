@@ -33,6 +33,7 @@ import {
 } from "../../services/api";
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
+import Avatar from "../../components/Avatar";
 
 // Cores semânticas fixas (categorias, não mudam com a paleta)
 const BLUE_LIGHT = "#eaf1ff";
@@ -793,15 +794,16 @@ export default function PsychologistPatientRecordScreen() {
           >
             <View style={styles.heroCard}>
               <View style={styles.heroTopRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(patient.user?.full_name ?? "")
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((p: string) => p[0])
-                      .join("")}
-                  </Text>
-                </View>
+                <Avatar
+                  uri={patient.photo ?? patient.user?.photo_url}
+                  initials={(patient.user?.full_name ?? "")
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((p: string) => p[0])
+                    .join("")}
+                  style={styles.avatar}
+                  textStyle={styles.avatarText}
+                />
                 <View style={styles.heroTextBox}>
                   <Text style={styles.heroTitle}>
                     {patient.user?.full_name ??

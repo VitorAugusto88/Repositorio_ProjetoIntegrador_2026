@@ -29,6 +29,10 @@ import { resolveAppointmentRoomName } from '../../services/rooms';
 import { DateField, TimeField } from '../../components/DateTimeField';
 import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
+import Avatar from '../../components/Avatar';
+
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
 
 interface StatusConfig {
   label: string;
@@ -276,14 +280,16 @@ export default function ConsultaDetalheScreen() {
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
         <DecorativeBackground styles={styles} />
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerTextBox}>
-            <Text style={styles.headerEyebrow}>Detalhes</Text>
-            <Text style={styles.headerTitle}>Consulta</Text>
+          <View style={styles.headerInner}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.headerTextBox}>
+              <Text style={styles.headerEyebrow}>Detalhes</Text>
+              <Text style={styles.headerTitle}>Consulta</Text>
+            </View>
+            <View style={{ width: 42 }} />
           </View>
-          <View style={{ width: 42 }} />
         </View>
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -298,13 +304,15 @@ export default function ConsultaDetalheScreen() {
       <View style={styles.screen}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerTextBox}>
-            <Text style={styles.headerTitle}>Consulta nao encontrada</Text>
+          <View style={styles.headerInner}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.headerTextBox}>
+              <Text style={styles.headerTitle}>Consulta nao encontrada</Text>
+            </View>
+            <View style={{ width: 42 }} />
           </View>
-          <View style={{ width: 42 }} />
         </View>
         <View style={styles.loadingBox}>
           <Ionicons name="alert-circle-outline" size={48} color="#ccc" />
@@ -320,14 +328,16 @@ export default function ConsultaDetalheScreen() {
       <DecorativeBackground styles={styles} />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTextBox}>
-          <Text style={styles.headerEyebrow}>Detalhes</Text>
-          <Text style={styles.headerTitle}>Consulta</Text>
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerTextBox}>
+            <Text style={styles.headerEyebrow}>Detalhes</Text>
+            <Text style={styles.headerTitle}>Consulta</Text>
+          </View>
+          <View style={{ width: 42 }} />
         </View>
-        <View style={{ width: 42 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -346,9 +356,12 @@ export default function ConsultaDetalheScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Profissional</Text>
             <View style={styles.personRow}>
-              <View style={[styles.avatar, { backgroundColor: '#fef3e8' }]}>
-                <Text style={[styles.avatarText, { color: '#c46a1a' }]}>{getInitials(professionalName)}</Text>
-              </View>
+              <Avatar
+                uri={appointment?.professional_detail?.photo}
+                initials={getInitials(professionalName)}
+                style={[styles.avatar, { backgroundColor: '#fef3e8' }]}
+                textStyle={[styles.avatarText, { color: '#c46a1a' }]}
+              />
               <View style={styles.personInfo}>
                 <Text style={styles.personName}>{professionalName}</Text>
                 {specialty ? <Text style={styles.personMeta}>{specialty}</Text> : null}
@@ -359,9 +372,12 @@ export default function ConsultaDetalheScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Paciente</Text>
             <View style={styles.personRow}>
-              <View style={[styles.avatar, { backgroundColor: '#eaf1ff' }]}>
-                <Text style={[styles.avatarText, { color: '#2d6cdf' }]}>{getInitials(patientName)}</Text>
-              </View>
+              <Avatar
+                uri={appointment?.patient_detail?.photo}
+                initials={getInitials(patientName)}
+                style={[styles.avatar, { backgroundColor: '#eaf1ff' }]}
+                textStyle={[styles.avatarText, { color: '#2d6cdf' }]}
+              />
               <View style={styles.personInfo}>
                 <Text style={styles.personName}>{patientName}</Text>
                 {appointment?.patient_detail?.user?.email && (
@@ -625,8 +641,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primaryStrong, top: -55, left: -70, opacity: 0.28,
   },
   header: {
-    paddingTop: 56, paddingBottom: 24, paddingHorizontal: 24, backgroundColor: colors.primary,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 56,
+    paddingBottom: 24,
+    backgroundColor: colors.primary,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backBtn: {
     width: 42, height: 42, borderRadius: 14,
@@ -640,7 +666,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   loadingText: { fontSize: 15, color: colors.primary, fontWeight: '600' },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 22, paddingBottom: 40, maxWidth: 960, alignSelf: 'center' as const, width: '100%' as const },
+  scrollContent: {
+    padding: 22,
+    paddingBottom: 40,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
+  },
 
   statusBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 16,

@@ -22,6 +22,7 @@ import {
     getMe,
 
 } from "../../services/api";
+import Avatar from "../../components/Avatar";
 
 // Cor semântica fixa (não muda com a paleta da clínica).
 const BLUE_LIGHT = "#eaf1ff";
@@ -278,9 +279,12 @@ _displayPhone: patient.user?.phone ?? patient.phone ?? "Telefone não informado"
                     }
                   >
                     <View style={styles.patientHeader}>
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{initials}</Text>
-                      </View>
+                      <Avatar
+                        uri={patient.photo ?? patient.user?.photo_url}
+                        initials={initials}
+                        style={styles.avatar}
+                        textStyle={styles.avatarText}
+                      />
 
                       <View style={styles.patientTextBox}>
                         <Text style={styles.patientName} numberOfLines={1}>

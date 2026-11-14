@@ -62,6 +62,7 @@ import {
 } from "../../services/api";
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
+import Avatar from "../../components/Avatar";
 
 // Estilo WhatsApp — fixo, não muda com a paleta da clínica
 const WA_BG = "#ece5dd"; // fundo bege do thread
@@ -137,6 +138,8 @@ interface Conversation {
   contactName: string;
   contactRole: string;
   initials: string;
+  // Imagem do perfil do contato (foto própria ou logo da clínica p/ admin).
+  photoUrl: string | null;
   unread: number;
   lastText: string;
   lastAt: string;
@@ -241,6 +244,7 @@ interface Contact {
   full_name: string;
   role: string;
   initials: string;
+  photo_url?: string | null;
 }
 
 export default function ChatScreen() {
@@ -310,6 +314,7 @@ export default function ChatScreen() {
               initials:
                 contact.initials ||
                 getInitials(contact.full_name || item.user_name || ""),
+              photoUrl: contact.photo_url || null,
               unread: item.unread_count ?? item.unread ?? 0,
               // Mídia não tem texto: usa o mesmo snippet das bolhas
               // (📷/🎤/📎) para a prévia não ficar vazia na lista.
@@ -961,6 +966,7 @@ export default function ChatScreen() {
         contactName: contact.full_name,
         contactRole: contact.role,
         initials: contact.initials || getInitials(contact.full_name),
+        photoUrl: contact.photo_url || null,
         unread: 0,
         lastText: "",
         lastAt: "",
@@ -1116,9 +1122,12 @@ export default function ChatScreen() {
                       activeOpacity={0.7}
                     >
                       <View style={styles.avatarWrap}>
-                        <View style={styles.avatar}>
-                          <Text style={styles.avatarText}>{conv.initials}</Text>
-                        </View>
+                        <Avatar
+                          uri={conv.photoUrl}
+                          initials={conv.initials}
+                          style={styles.avatar}
+                          textStyle={styles.avatarText}
+                        />
                         {conv.online && <View style={styles.onlineDot} />}
                       </View>
 
@@ -1167,11 +1176,12 @@ export default function ChatScreen() {
                     <Ionicons name="arrow-back" size={22} color={colors.primary} />
                   </TouchableOpacity>
                 )}
-                <View style={styles.chatAvatarBox}>
-                  <Text style={styles.chatAvatarText}>
-                    {activeConversation.initials}
-                  </Text>
-                </View>
+                <Avatar
+                  uri={activeConversation.photoUrl}
+                  initials={activeConversation.initials}
+                  style={styles.chatAvatarBox}
+                  textStyle={styles.chatAvatarText}
+                />
                 <View>
                   <Text style={styles.chatName}>
                     {activeConversation.contactName}
@@ -1573,11 +1583,12 @@ export default function ChatScreen() {
                       onPress={() => handleStartConversation(contact)}
                       activeOpacity={0.75}
                     >
-                      <View style={styles.contactAvatar}>
-                        <Text style={styles.contactAvatarText}>
-                          {contact.initials || getInitials(contact.full_name)}
-                        </Text>
-                      </View>
+                      <Avatar
+                        uri={contact.photo_url}
+                        initials={contact.initials || getInitials(contact.full_name)}
+                        style={styles.contactAvatar}
+                        textStyle={styles.contactAvatarText}
+                      />
                       <View style={styles.contactInfo}>
                         <Text style={styles.contactName}>
                           {contact.full_name}

@@ -23,6 +23,7 @@ import {
   logout,
 } from "../../services/api";
 import { confirmAction } from "../../services/confirm";
+import Avatar from "../../components/Avatar";
 
 // Cores semânticas fixas (categorias de atalho, não mudam com a paleta)
 const BLUE = "#2d6cdf";
@@ -160,6 +161,9 @@ export default function AdminDashboardScreen() {
 
   const [adminName, setAdminName] = useState("Administrador");
   const [clinicName, setClinicName] = useState("");
+  // O admin representa a clínica: o avatar dele é a logo da clínica
+  // (photo_url do /me). Sem logo, ficam as iniciais.
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [stats, setStats] = useState<ClinicStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -182,6 +186,7 @@ export default function AdminDashboardScreen() {
         setAdminName(
           meResult.data.full_name || meResult.data.name || "Administrador",
         );
+        setAvatarUrl(meResult.data.photo_url || null);
 
         const clinicId = meResult.data.clinic;
         if (!clinicId) {
@@ -223,7 +228,15 @@ export default function AdminDashboardScreen() {
           setUnreadCount(result.data.unread_count);
         }
       };
+      // Recarrega a logo ao voltar de Gerenciamento, onde ela é trocada.
+      const loadAvatar = async () => {
+        const result = await getMe();
+        if (result.ok && result.data) {
+          setAvatarUrl(result.data.photo_url || null);
+        }
+      };
       void loadUnread();
+      void loadAvatar();
     }, []),
   );
 
@@ -325,9 +338,12 @@ export default function AdminDashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <View style={styles.identity}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            <Avatar
+              uri={avatarUrl}
+              initials={initials}
+              style={styles.avatar}
+              textStyle={styles.avatarText}
+            />
             <View style={styles.identityText}>
               <Text style={styles.headerGreeting}>{greeting},</Text>
               <Text style={styles.headerName} numberOfLines={1}>

@@ -122,11 +122,13 @@ export default function RoomsScreen() {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Salas</Text>
-        <View style={styles.iconButton} />
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Salas</Text>
+          <View style={styles.iconButton} />
+        </View>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.container}>
@@ -176,7 +178,20 @@ export default function RoomsScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.pageBg },
-  header: { backgroundColor: colors.primary, paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  header: {
+    backgroundColor: colors.primary,
+    paddingTop: 52,
+    paddingBottom: 20,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   iconButton: { width: 42, height: 42, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
   headerTitle: { color: "#fff", fontSize: 21, fontWeight: "800" },
   content: { padding: 20, paddingBottom: 48 },

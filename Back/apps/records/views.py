@@ -21,16 +21,21 @@ def get_documents_for_user(user):
     if user.is_superuser:
         return base
     if user.is_admin:
-        # Secretaria/admin nao acessa documentos clinicos de pacientes: so os
-        # avulsos (administrativos, sem paciente) da propria clinica.
-        return base.filter(patient__isnull=True, clinic_id=user.clinic_id)
+        # Secretaria/admin so acessa os documentos administrativos da propria
+        # clinica (com ou sem paciente vinculado). Os clinicos, enviados pelo
+        # psicologo, nunca aparecem aqui.
+        return base.filter(
+            area=Document.Area.ADMINISTRATIVE, clinic_id=user.clinic_id,
+        )
     if user.is_professional:
-        # Documentos da clínica: vinculados a um paciente da clínica OU avulsos
-        # (sem paciente) marcados com a clínica. Inclui docs de pacientes
-        # arquivados, cujo PatientProfile é preservado.
+        # Documentos clinicos da clinica: vinculados a um paciente da clinica
+        # OU avulsos marcados com a clinica. Inclui docs de pacientes
+        # arquivados, cujo PatientProfile e preservado. Os administrativos
+        # (enviados pela secretaria) nao aparecem para o psicologo.
         return base.filter(
             Q(patient__user__clinic_id=user.clinic_id)
-            | Q(clinic_id=user.clinic_id)
+            | Q(clinic_id=user.clinic_id),
+            area=Document.Area.CLINICAL,
         )
     return base.filter(patient=user.patient_profile)
 
@@ -99,21 +104,26 @@ class DocumentListCreateView(generics.ListCreateAPIView):
             document = serializer.save(
                 patient=user.patient_profile,
                 clinic_id=user.clinic_id,
+                area=Document.Area.CLINICAL,
             )
             self._log_document_created(document)
             return
 
         patient = serializer.validated_data.get('patient')
 
-        if user.is_admin and patient:
-            raise PermissionDenied('Apenas o psicologo pode anexar documentos clinicos de pacientes.')
+        # A area segue quem envia: o admin (secretaria) sempre gera documentos
+        # administrativos — mesmo vinculados a um paciente — e o psicologo,
+        # clinicos. Assim um nunca enxerga os documentos do outro.
+        area = (
+            Document.Area.ADMINISTRATIVE if user.is_admin else Document.Area.CLINICAL
+        )
 
         # Documento avulso (sem paciente): permitido para admin/profissional,
         # escopado à clínica do usuário.
         if not patient:
             if not user.is_superuser and not user.clinic_id:
                 raise PermissionDenied('Usuario sem clinica vinculada.')
-            document = serializer.save(patient=None, clinic_id=user.clinic_id)
+            document = serializer.save(patient=None, clinic_id=user.clinic_id, area=area)
             self._log_document_created(document)
             return
 
@@ -121,7 +131,7 @@ class DocumentListCreateView(generics.ListCreateAPIView):
             raise PermissionDenied('Voce nao pode anexar documentos para outra clinica.')
 
         # Vincula também a clínica (facilita o escopo e sobrevive ao arquivamento).
-        document = serializer.save(clinic_id=patient.user.clinic_id)
+        document = serializer.save(clinic_id=patient.user.clinic_id, area=area)
         self._log_document_created(document)
 
     def _log_document_created(self, document):
@@ -132,6 +142,7 @@ class DocumentListCreateView(generics.ListCreateAPIView):
             metadata={
                 'patient_id': str(document.patient_id) if document.patient_id else None,
                 'file_type': document.file_type,
+                'area': document.area,
             },
         )
 

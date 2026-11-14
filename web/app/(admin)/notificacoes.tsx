@@ -21,6 +21,9 @@ import {
   NotificationApiItem,
 } from "../../services/api";
 
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
+
 type NotificationFilter = "all" | "unread" | "read";
 
 const FILTERS: { key: NotificationFilter; label: string }[] = [
@@ -313,33 +316,35 @@ export default function NotificationsScreen() {
       <DecorativeBackground styles={styles} />
 
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="arrow-back-outline" size={22} color={colors.white} />
-        </TouchableOpacity>
+        <View style={styles.headerInner}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="arrow-back-outline" size={22} color={colors.white} />
+          </TouchableOpacity>
 
-        <View style={styles.headerTextBox}>
-          <Text style={styles.headerTitle}>Notificacoes</Text>
-          <Text style={styles.headerSubtitle}>
-            {unreadCount > 0
-              ? `${unreadCount} aviso${unreadCount > 1 ? "s" : ""} nao lido${
-                  unreadCount > 1 ? "s" : ""
-                }`
-              : "Tudo em dia por aqui"}
-          </Text>
+          <View style={styles.headerTextBox}>
+            <Text style={styles.headerTitle}>Notificacoes</Text>
+            <Text style={styles.headerSubtitle}>
+              {unreadCount > 0
+                ? `${unreadCount} aviso${unreadCount > 1 ? "s" : ""} nao lido${
+                    unreadCount > 1 ? "s" : ""
+                  }`
+                : "Tudo em dia por aqui"}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.iconBtn, unreadCount === 0 && styles.iconBtnDisabled]}
+            onPress={handleMarkAllRead}
+            disabled={unreadCount === 0}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="checkmark-done-outline" size={22} color={colors.white} />
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[styles.iconBtn, unreadCount === 0 && styles.iconBtnDisabled]}
-          onPress={handleMarkAllRead}
-          disabled={unreadCount === 0}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="checkmark-done-outline" size={22} color={colors.white} />
-        </TouchableOpacity>
       </View>
 
       <Animated.View
@@ -453,6 +458,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primary,
     paddingTop: 54,
     paddingBottom: 24,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -487,6 +497,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   content: {
     flex: 1,
     paddingTop: 18,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
   },
   filterRow: {
     flexDirection: "row",
@@ -534,9 +547,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 36,
     gap: 12,
-    maxWidth: 960,
-    alignSelf: 'center' as const,
-    width: '100%' as const,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
   },
   notificationCard: {
     backgroundColor: colors.white,

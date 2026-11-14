@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from .models import ChatMessage
 from apps.accounts.models import User
-from apps.accounts.serializers import UserSerializer
+from apps.accounts.serializers import UserSerializer, get_user_photo_url
 from apps.uploads import DOCUMENT_EXTENSIONS, validate_signature
 
 MAX_CHAT_ATTACHMENT_SIZE = 20 * 1024 * 1024
@@ -68,13 +68,17 @@ def appointment_matches_chat(appointment, sender, receiver):
 class ChatContactSerializer(serializers.ModelSerializer):
     initials = serializers.SerializerMethodField()
     online = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "full_name", "role", "initials", "online"]
+        fields = ["id", "full_name", "role", "initials", "online", "photo_url"]
 
     def get_initials(self, obj):
         return user_initials(obj)
+
+    def get_photo_url(self, obj):
+        return get_user_photo_url(obj, self.context.get("request"))
 
     def get_online(self, obj):
         from .presence import is_user_online

@@ -19,15 +19,17 @@ from .realtime import (
     serialize_message_for_event,
 )
 from apps.accounts.models import User
+from apps.accounts.serializers import get_user_photo_url
 
 
-def format_chat_contact(user):
+def format_chat_contact(user, request=None):
     return {
         'id': str(user.id),
         'full_name': user.full_name,
         'role': user.role,
         'initials': user_initials(user),
         'online': is_user_online(user.id),
+        'photo_url': get_user_photo_url(user, request),
     }
 
 
@@ -346,7 +348,7 @@ class ConversationListView(APIView):
             conversations[other.id] = {
                 'user_id': str(other.id),
                 'user_name': other.full_name,
-                'contact': format_chat_contact(other),
+                'contact': format_chat_contact(other, request),
                 'last_message': format_message_summary(message),
                 'last_message_text': message.content_encrypted,
                 'last_message_at': message.sent_at,
@@ -388,5 +390,7 @@ class ChatContactListView(APIView):
 
     def get(self, request):
         contacts = get_allowed_contact_queryset(request.user).order_by('full_name')
-        serializer = ChatContactSerializer(contacts, many=True)
+        serializer = ChatContactSerializer(
+            contacts, many=True, context={'request': request}
+        )
         return Response(serializer.data)

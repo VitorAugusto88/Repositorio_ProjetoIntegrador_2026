@@ -16,6 +16,7 @@ import { showAlert } from '../../../services/feedback';
 import { getPsychologists, updateProfessionalProfile, ProfessionalApiItem } from '../../../services/api';
 import { ThemeColors } from '../../../constants/theme-palettes';
 import { useTheme } from '../../../contexts/ThemeContext';
+import Avatar from '../../../components/Avatar';
 
 // Cores semânticas fixas (categoria "profissional", não muda com a paleta)
 const ORANGE = '#c46a1a';
@@ -208,9 +209,12 @@ export default function ProfessionalDetailScreen() {
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
           <View style={styles.profileCard}>
-            <View style={styles.avatarLarge}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            <Avatar
+              uri={professional.photo ?? professional.user.photo_url}
+              initials={initials}
+              style={styles.avatarLarge}
+              textStyle={styles.avatarText}
+            />
             <Text style={styles.profileName}>{professional.user.full_name}</Text>
             <Text style={styles.profileEmail}>{professional.user.email}</Text>
 

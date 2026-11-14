@@ -2,7 +2,8 @@ import { expect, Page, test } from "@playwright/test";
 import { clicar, entrar, textoVisivel, USUARIOS } from "./apoio";
 
 // RN04: upload validado pelo conteúdo do arquivo, não pela extensão.
-// Os envios são feitos pela tela "Documentos" do administrador, como avulsos.
+// Os envios são feitos pela tela "Documentos" do administrador (documentos
+// administrativos), sem paciente vinculado.
 test.describe.configure({ mode: "serial" });
 
 const PDF_VALIDO = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF");

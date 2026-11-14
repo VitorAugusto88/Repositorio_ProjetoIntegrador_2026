@@ -133,14 +133,16 @@ class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={'request': request})
         return Response(serializer.data)
 
     def patch(self, request):
         allowed_fields = {'full_name', 'phone'}
         data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
-        serializer = UserSerializer(request.user, data=data, partial=True)
+        serializer = UserSerializer(
+            request.user, data=data, partial=True, context={'request': request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)

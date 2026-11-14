@@ -20,8 +20,8 @@ interface Registro {
 
 test.describe("Isolamento entre clínicas", () => {
   test("CT03 - administrador da Clínica A não alcança dados da Clínica B", async ({ request }) => {
-    // Ids reais da Clínica B. Os documentos vêm do psicólogo dela, porque o
-    // admin só enxerga os avulsos (documento clínico é exclusivo do psicólogo).
+    // Ids reais da Clínica B. Os documentos vêm do psicólogo dela, porque são
+    // clínicos — o admin só enxerga os documentos administrativos.
     const adminB = await autenticado(request, USUARIOS.adminB);
     const psicologoB = await autenticado(request, USUARIOS.psicologoB);
     const docsB = lista<Registro>(

@@ -23,6 +23,7 @@ import {
     logout,
 } from "../../services/api";
 import { confirmAction } from "../../services/confirm";
+import Avatar from "../../components/Avatar";
 
 // Cores semânticas fixas (categorias de atalho, não mudam com a paleta)
 const BLUE = "#2d6cdf";
@@ -141,6 +142,8 @@ export default function PsychologistDashboardScreen() {
 
   const [profileName, setProfileName] = useState("");
   const [profileCrp, setProfileCrp] = useState("CRP não informado");
+  // Foto de perfil do próprio psicólogo (photo_url do /me); sem foto, iniciais.
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<{
     consultas_hoje: number;
@@ -168,6 +171,7 @@ export default function PsychologistDashboardScreen() {
           setProfileName(
             meResult.data.full_name || meResult.data.name || "Profissional",
           );
+          setAvatarUrl(meResult.data.photo_url || null);
           const myProfile = profsResult.data?.find(
             (p) => p.user.id === meResult.data.id,
           );
@@ -212,7 +216,15 @@ export default function PsychologistDashboardScreen() {
           setSummary(result.data);
         }
       };
+      // Recarrega a foto ao voltar do Perfil, onde ela é trocada.
+      const loadAvatar = async () => {
+        const result = await getMe();
+        if (result.ok && result.data) {
+          setAvatarUrl(result.data.photo_url || null);
+        }
+      };
       void loadUnread();
+      void loadAvatar();
       if (firstFocusRef.current) {
         firstFocusRef.current = false;
         return;
@@ -277,9 +289,12 @@ export default function PsychologistDashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <View style={styles.identity}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            <Avatar
+              uri={avatarUrl}
+              initials={initials}
+              style={styles.avatar}
+              textStyle={styles.avatarText}
+            />
             <View style={styles.identityText}>
               <Text style={styles.headerGreeting}>{greeting},</Text>
               <Text style={styles.headerName} numberOfLines={1}>

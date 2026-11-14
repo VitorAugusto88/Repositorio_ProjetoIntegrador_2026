@@ -33,10 +33,12 @@ class DocumentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient', 'patient_name', 'patient_archived', 'is_avulso',
             'title', 'file', 'file_url',
-            'file_type', 'file_type_display', 'uploaded_at'
+            'file_type', 'file_type_display', 'area', 'uploaded_at'
         ]
+        # `area` e definida pelo backend conforme quem envia (ver
+        # DocumentListCreateView.perform_create) — nunca pelo cliente.
         read_only_fields = [
-            'id', 'uploaded_at', 'file_url',
+            'id', 'uploaded_at', 'file_url', 'area',
             'patient_name', 'patient_archived', 'is_avulso',
         ]
 

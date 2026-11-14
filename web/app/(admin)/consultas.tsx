@@ -28,6 +28,7 @@ import {
 import { partsToISO, toInputParts, todayISODate } from "../../services/dateInput";
 import { resolveAppointmentRoomName } from "../../services/rooms";
 import { DateField, TimeField } from "../../components/DateTimeField";
+import Avatar from "../../components/Avatar";
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -54,6 +55,8 @@ type AppointmentStatus = "completed" | "rescheduled" | "scheduled" | "no_show";
 interface NormalizedAppointment {
   id: string;
   patientName: string;
+  // Foto de perfil do paciente (null → iniciais).
+  patientPhoto: string | null;
   professionalName: string;
   specialty: string;
   dateTime: string;
@@ -174,6 +177,7 @@ const normalize = (
   return {
     id: item.id,
     patientName,
+    patientPhoto: item.patient_detail?.photo ?? null,
     professionalName,
     specialty,
     dateTime: isoRaw,
@@ -228,9 +232,12 @@ const AppointmentCard = ({
   return (
     <View style={[styles.card, { flexBasis: width as any }]}>
       <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(item.patientName)}</Text>
-        </View>
+        <Avatar
+          uri={item.patientPhoto}
+          initials={getInitials(item.patientName)}
+          style={styles.avatar}
+          textStyle={styles.avatarText}
+        />
         <View style={styles.cardInfo}>
           <Text style={styles.patientName} numberOfLines={1}>
             {item.patientName}

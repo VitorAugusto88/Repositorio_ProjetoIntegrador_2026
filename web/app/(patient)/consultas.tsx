@@ -25,6 +25,10 @@ import {
     OVERDUE_STATUS_LABEL,
 } from "../../services/api";
 import { resolveAppointmentRoomName } from "../../services/rooms";
+import Avatar from "../../components/Avatar";
+
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
 
 // Alias para evitar conflitos
 const TextInput = RNTextInput;
@@ -37,6 +41,8 @@ interface Appointment {
   time: string;
   scheduledAt: string; // ISO original — usado para saber se o dia já passou
   psychologist: string;
+  // Foto de perfil do psicólogo (null → iniciais).
+  psychologistPhoto: string | null;
   specialty: string;
   status: AppointmentStatus;
   // Somente leitura: o paciente nunca escolhe sala, so ve a que foi definida.
@@ -86,6 +92,7 @@ const normalizeAppointment = (
     time,
     scheduledAt,
     psychologist: psychologistName,
+    psychologistPhoto: item.professional_detail?.photo ?? null,
     specialty,
     status,
     roomName: resolveAppointmentRoomName(item),
@@ -358,16 +365,18 @@ export default function ConsultasScreen() {
       <DecorativeBackground />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+          </TouchableOpacity>
 
-        <View style={styles.headerTextBox}>
-          <Text style={styles.headerEyebrow}>Area do paciente</Text>
-          <Text style={styles.headerTitle}>Minhas consultas</Text>
+          <View style={styles.headerTextBox}>
+            <Text style={styles.headerEyebrow}>Area do paciente</Text>
+            <Text style={styles.headerTitle}>Minhas consultas</Text>
+          </View>
+
+          <View style={styles.headerSpacer} />
         </View>
-
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -513,9 +522,12 @@ export default function ConsultasScreen() {
                         ) : null}
 
                         <View style={styles.professionalRow}>
-                          <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{initials}</Text>
-                          </View>
+                          <Avatar
+                            uri={appointment.psychologistPhoto}
+                            initials={initials}
+                            style={styles.avatar}
+                            textStyle={styles.avatarText}
+                          />
                           <View style={styles.professionalTextBox}>
                             <Text style={styles.professionalName}>
                               {appointment.psychologist}
@@ -649,8 +661,13 @@ const createStyles = (colors: ThemeColors) =>
     header: {
       paddingTop: 56,
       paddingBottom: 24,
-      paddingHorizontal: 24,
       backgroundColor: colors.primary,
+    },
+    headerInner: {
+      width: "100%",
+      maxWidth: MAX_WIDTH,
+      alignSelf: "center",
+      paddingHorizontal: 24,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
@@ -688,6 +705,9 @@ const createStyles = (colors: ThemeColors) =>
     scrollContent: {
       padding: 22,
       paddingBottom: 40,
+      width: "100%",
+      maxWidth: MAX_WIDTH,
+      alignSelf: "center",
     },
     heroCard: {
       backgroundColor: colors.white,

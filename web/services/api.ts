@@ -35,6 +35,8 @@ export interface ClinicApiItem {
   address?: string;
   phone?: string;
   email?: string;
+  // Logo/foto da clínica (URL absoluta) — null quando não cadastrada.
+  logo?: string | null;
 }
 
 export interface RoomApiItem {
@@ -61,7 +63,8 @@ export interface AppointmentApiItem {
   specialty?: string;
   professional?: string;
   professional_detail?: {
-    user?: { id: string; full_name?: string; email?: string };
+    user?: { id: string; full_name?: string; email?: string; photo_url?: string | null };
+    photo?: string | null;
   };
   patient?: string;
   room?: string | null;
@@ -73,7 +76,9 @@ export interface AppointmentApiItem {
       full_name: string;
       email?: string;
       phone?: string;
+      photo_url?: string | null;
     };
+    photo?: string | null;
   };
 }
 
@@ -213,6 +218,7 @@ export interface ProfessionalApiItem {
     created_at?: string;
     first_name?: string;
     last_name?: string;
+    photo_url?: string | null;
   };
   crp?: string;
   specialty?: string;
@@ -257,6 +263,7 @@ export interface PatientProfileApiItem {
     clinic?: string;
     is_active?: boolean;
     created_at?: string;
+    photo_url?: string | null;
   };
   photo?: string | null;
   birth_date?: string | null;

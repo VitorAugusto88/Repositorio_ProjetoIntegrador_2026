@@ -22,6 +22,8 @@ import { showAlert } from "../../services/feedback";
 import {
   deleteDocument,
   DOCUMENT_MIME_TYPES,
+  getClinicId,
+  getClinicPatients,
   getDocuments,
   uploadDocument,
 } from "../../services/api";
@@ -78,9 +80,16 @@ const formatDate = (iso: string): string => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-// Documentos vinculados a pacientes são clínicos e ficam visíveis apenas ao
-// psicólogo responsável (tela (psychologist)/ficha.tsx). O secretário/admin só
-// enxerga e cadastra documentos avulsos (administrativos, sem paciente).
+interface PatientOption {
+  id: string; // PatientProfile.id — o campo `patient` do upload
+  name: string;
+}
+
+// Documentos ADMINISTRATIVOS da clínica (contratos, comprovantes, termos...).
+// O admin pode vinculá-los a um paciente ou deixá-los avulsos. São uma área
+// separada dos documentos CLÍNICOS do psicólogo (tela (psychologist)/ficha.tsx):
+// o admin não vê os clínicos e o psicólogo não vê estes — o backend decide a
+// área pelo papel de quem envia.
 export default function AdminDocumentsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -103,10 +112,10 @@ export default function AdminDocumentsScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  // scope: "avulsos" — o secretário/admin nunca carrega documentos clínicos
-  // vinculados a paciente, que são exclusivos do psicólogo responsável.
+  // O backend já devolve ao admin apenas os documentos administrativos da
+  // clínica (avulsos e vinculados a paciente) — nunca os clínicos.
   const loadDocs = async () => {
-    const result = await getDocuments({ scope: "avulsos" });
+    const result = await getDocuments();
     if (result.ok && Array.isArray(result.data)) {
       setDocs(result.data as DocItem[]);
     } else {
@@ -138,7 +147,11 @@ export default function AdminDocumentsScreen() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return docs;
-    return docs.filter((d) => d.title.toLowerCase().includes(q));
+    return docs.filter(
+      (d) =>
+        d.title.toLowerCase().includes(q) ||
+        (d.patient_name ?? "").toLowerCase().includes(q),
+    );
   }, [docs, search]);
 
   const handleDownload = async (doc: DocItem) => {
@@ -173,6 +186,7 @@ export default function AdminDocumentsScreen() {
           </TouchableOpacity>
           <View style={styles.headerTextBox}>
             <Text style={styles.headerTitle}>Documentos</Text>
+            <Text style={styles.headerSubtitle}>Administrativos da clínica</Text>
           </View>
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.replace("/(admin)")}>
             <Ionicons name="home-outline" size={20} color="#fff" />
@@ -194,6 +208,23 @@ export default function AdminDocumentsScreen() {
           <Animated.View
             style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
           >
+            <View style={styles.infoBanner}>
+              <View style={styles.infoBannerIcon}>
+                <Ionicons name="lock-closed-outline" size={18} color={BLUE} />
+              </View>
+              <View style={styles.infoBannerTextBox}>
+                <Text style={styles.infoBannerTitle}>
+                  Estes não são os documentos do psicólogo
+                </Text>
+                <Text style={styles.infoBannerText}>
+                  Aqui ficam só os documentos administrativos enviados pela
+                  secretaria/administração, avulsos ou vinculados a um paciente.
+                  Eles não aparecem para o psicólogo, e os documentos clínicos
+                  que o psicólogo anexa na ficha do paciente não aparecem aqui.
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={styles.addBtn}
               onPress={() => setModalVisible(true)}
@@ -207,7 +238,7 @@ export default function AdminDocumentsScreen() {
               <Ionicons name="search-outline" size={16} color={colors.placeholder} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Buscar por título..."
+                placeholder="Buscar por título ou paciente..."
                 placeholderTextColor={colors.placeholder}
                 value={search}
                 onChangeText={setSearch}
@@ -241,6 +272,19 @@ export default function AdminDocumentsScreen() {
                           {doc.title}
                         </Text>
                         <View style={styles.docMeta}>
+                          {doc.patient_name ? (
+                            <View style={styles.patientBadge}>
+                              <Ionicons name="person-outline" size={11} color={colors.primary} />
+                              <Text style={styles.patientBadgeText} numberOfLines={1}>
+                                {doc.patient_name}
+                                {doc.patient_archived ? " (arquivado)" : ""}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.avulsoBadge}>
+                              <Text style={styles.avulsoBadgeText}>Avulso</Text>
+                            </View>
+                          )}
                           <Text style={styles.docDate}>{formatDate(doc.uploaded_at)}</Text>
                         </View>
                         <View style={styles.docActions}>
@@ -325,9 +369,8 @@ export default function AdminDocumentsScreen() {
   );
 }
 
-// Sempre avulso: o secretário/admin não vincula documentos a pacientes por
-// aqui — documentos clínicos são cadastrados pelo psicólogo em sua própria
-// ficha do paciente.
+// O vínculo com paciente é opcional. Mesmo vinculado, o documento enviado
+// aqui é administrativo: fica fora da ficha clínica e o psicólogo não o vê.
 function UploadModal({
   visible,
   onClose,
@@ -349,10 +392,48 @@ function UploadModal({
   const [file, setFile] = useState<{ uri: string; name: string; mimeType?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Paciente opcional (null = avulso).
+  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientSearch, setPatientSearch] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
+
+  // Carrega os pacientes da clínica ao abrir o modal (uma vez por sessão da tela).
+  useEffect(() => {
+    if (!visible || patients.length > 0) return;
+    const load = async () => {
+      setPatientsLoading(true);
+      const clinicId = await getClinicId();
+      if (clinicId) {
+        const result = await getClinicPatients(clinicId);
+        if (result.ok && Array.isArray(result.data)) {
+          setPatients(
+            result.data
+              .map((p: any) => ({
+                id: String(p.id),
+                name: p.user?.full_name || p.full_name || "Paciente",
+              }))
+              .sort((a: PatientOption, b: PatientOption) => a.name.localeCompare(b.name)),
+          );
+        }
+      }
+      setPatientsLoading(false);
+    };
+    void load();
+  }, [visible, patients.length]);
+
+  const filteredPatients = useMemo(() => {
+    const q = patientSearch.trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) => p.name.toLowerCase().includes(q));
+  }, [patients, patientSearch]);
+
   const reset = () => {
     setTitle("");
     setFileType("pdf");
     setFile(null);
+    setSelectedPatient(null);
+    setPatientSearch("");
   };
 
   const handlePick = async () => {
@@ -380,11 +461,16 @@ function UploadModal({
       return;
     }
     setUploading(true);
-    const result = await uploadDocument(title.trim(), fileType, {
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType || "application/octet-stream",
-    });
+    const result = await uploadDocument(
+      title.trim(),
+      fileType,
+      {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || "application/octet-stream",
+      },
+      selectedPatient?.id,
+    );
     setUploading(false);
     if (!result.ok) {
       showAlert("Erro", (result as any).error || "Não foi possível enviar o documento.");
@@ -444,6 +530,57 @@ function UploadModal({
               })}
             </View>
 
+            <Text style={styles.modalLabel}>Paciente (opcional)</Text>
+            {selectedPatient ? (
+              <View style={styles.selectedPatient}>
+                <Ionicons name="person-circle-outline" size={20} color={colors.primary} />
+                <Text style={styles.selectedPatientText} numberOfLines={1}>
+                  {selectedPatient.name}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedPatient(null)} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={colors.placeholder} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.modalInput}
+                  value={patientSearch}
+                  onChangeText={setPatientSearch}
+                  placeholder="Buscar paciente pelo nome (deixe vazio para avulso)"
+                  placeholderTextColor={colors.placeholder}
+                />
+                <View style={styles.patientList}>
+                  {patientsLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} style={{ margin: 12 }} />
+                  ) : filteredPatients.length === 0 ? (
+                    <Text style={styles.patientEmpty}>Nenhum paciente encontrado.</Text>
+                  ) : (
+                    <ScrollView nestedScrollEnabled style={{ maxHeight: 168 }}>
+                      {filteredPatients.map((p) => (
+                        <TouchableOpacity
+                          key={p.id}
+                          style={styles.patientOption}
+                          onPress={() => setSelectedPatient(p)}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons name="person-outline" size={14} color={colors.placeholder} />
+                          <Text style={styles.patientOptionText} numberOfLines={1}>
+                            {p.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              </>
+            )}
+            <Text style={styles.modalHint}>
+              {selectedPatient
+                ? "Documento administrativo vinculado a este paciente. Ele não entra na ficha clínica e o psicólogo não tem acesso."
+                : "Sem paciente, o documento fica avulso. Em qualquer caso, só a administração tem acesso."}
+            </Text>
+
             <TouchableOpacity style={styles.filePicker} onPress={handlePick} activeOpacity={0.8}>
               <Ionicons name="cloud-upload-outline" size={26} color={colors.placeholder} />
               <Text style={styles.filePickerText}>
@@ -498,6 +635,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   headerTextBox: { flex: 1 },
   headerTitle: { color: colors.white, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 },
+  headerSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 12.5, fontWeight: "600", marginTop: 2 },
+  infoBanner: {
+    flexDirection: "row", gap: 12, backgroundColor: "#eef4fd", borderRadius: 14,
+    borderWidth: 1, borderColor: "#d3e2f8", padding: 14, marginBottom: 16,
+  },
+  infoBannerIcon: {
+    width: 34, height: 34, borderRadius: 10, backgroundColor: "#dce8fb",
+    alignItems: "center", justifyContent: "center",
+  },
+  infoBannerTextBox: { flex: 1 },
+  infoBannerTitle: { fontSize: 13.5, fontWeight: "800", color: "#1f3f73", marginBottom: 3 },
+  infoBannerText: { fontSize: 12.5, color: "#3f5f8f", lineHeight: 18 },
+  patientBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primaryTint,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, maxWidth: "100%",
+  },
+  patientBadgeText: { fontSize: 11, fontWeight: "700", color: colors.primary, flexShrink: 1 },
+  avulsoBadge: {
+    backgroundColor: "#f1f3f2", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  avulsoBadgeText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 44 },
   container: { width: "100%", maxWidth: MAX_WIDTH, alignSelf: "center" },
@@ -562,6 +720,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     outlineStyle: "none",
   },
   typeRow: { flexDirection: "row", gap: 8 },
+  selectedPatient: {
+    flexDirection: "row", alignItems: "center", gap: 8, minHeight: 50, borderRadius: 12,
+    borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primaryTint, paddingHorizontal: 14,
+  },
+  selectedPatientText: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.textDark },
+  patientList: {
+    marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: "#d7ebe2", backgroundColor: colors.white,
+  },
+  patientOption: {
+    flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 11,
+    borderBottomWidth: 1, borderBottomColor: "#eef5f2",
+  },
+  patientOptionText: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.textDark },
+  patientEmpty: { fontSize: 13, color: colors.textMuted, padding: 12, textAlign: "center" },
+  modalHint: { fontSize: 12, color: colors.textMuted, marginTop: 8, lineHeight: 17 },
   typeOption: {
     flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10,
     borderRadius: 10, borderWidth: 1.5, borderColor: "#d4ede3", backgroundColor: "#fafffe",

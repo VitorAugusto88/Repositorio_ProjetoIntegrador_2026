@@ -28,6 +28,9 @@ import {
 } from "../../services/api";
 import { confirmAction } from "../../services/confirm";
 
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
+
 // Data máxima para nascimento: hoje (formato AAAA-MM-DD).
 const TODAY_STR = new Date().toLocaleDateString("en-CA");
 
@@ -385,20 +388,22 @@ export default function ProfileScreen() {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Meu Perfil</Text>
-        {!editing ? (
-          <TouchableOpacity style={styles.editBtn} onPress={handleEdit}>
-            <Ionicons name="pencil-outline" size={18} color="#fff" />
-            <Text style={styles.editBtnText}>Editar</Text>
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-            <Text style={styles.cancelBtnText}>Cancelar</Text>
-          </TouchableOpacity>
-        )}
+          <Text style={styles.headerTitle}>Meu Perfil</Text>
+          {!editing ? (
+            <TouchableOpacity style={styles.editBtn} onPress={handleEdit}>
+              <Ionicons name="pencil-outline" size={18} color="#fff" />
+              <Text style={styles.editBtnText}>Editar</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.avatarSection}>
@@ -566,6 +571,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primary,
     paddingTop: 52,
     paddingBottom: 16,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -664,6 +674,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 48,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
   },
 
   card: {

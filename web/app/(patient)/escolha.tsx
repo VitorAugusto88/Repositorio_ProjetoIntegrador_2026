@@ -15,6 +15,10 @@ import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
 import { showAlert } from "../../services/feedback";
 import { getMyAssignedProfessional, ProfessionalApiItem } from "../../services/api";
+import Avatar from "../../components/Avatar";
+
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
 
 const PsychologistCard = ({
   item,
@@ -70,9 +74,12 @@ const PsychologistCard = ({
       </View>
 
       <View style={styles.cardTop}>
-        <View style={[styles.avatar, { backgroundColor: bg }]}>
-          <Text style={[styles.avatarText, { color }]}>{initials}</Text>
-        </View>
+        <Avatar
+          uri={item.photo ?? item.user?.photo_url}
+          initials={initials}
+          style={[styles.avatar, { backgroundColor: bg }]}
+          textStyle={[styles.avatarText, { color }]}
+        />
 
         <View style={styles.cardInfo}>
           <Text style={styles.cardName}>{name}</Text>
@@ -175,16 +182,18 @@ export default function MyPsychologistScreen() {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>Meu Psicólogo</Text>
-          <Text style={styles.headerSubtitle}>
-            {loading ? "Carregando..." : "Profissional responsável pelo seu acompanhamento"}
-          </Text>
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Meu Psicólogo</Text>
+            <Text style={styles.headerSubtitle}>
+              {loading ? "Carregando..." : "Profissional responsável pelo seu acompanhamento"}
+            </Text>
+          </View>
+          <View style={{ width: 36 }} />
         </View>
-        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
@@ -234,6 +243,11 @@ const createStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primary,
     paddingTop: 52,
     paddingBottom: 18,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -264,6 +278,9 @@ const createStyles = (colors: ThemeColors) =>
     padding: 20,
     paddingBottom: 40,
     gap: 16,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
   },
 
   card: {

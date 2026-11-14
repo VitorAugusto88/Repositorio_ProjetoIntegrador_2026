@@ -23,6 +23,10 @@ import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getClinicData, getClinicId, getClinics } from "../../services/api";
 import { showToast } from "../../services/feedback";
+import Avatar from "../../components/Avatar";
+
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
 
 // "HH:MM:SS" → "HH:MM"
 const formatTime = (t?: string): string =>
@@ -36,6 +40,7 @@ interface ClinicInfo {
   open_from?: string;
   open_until?: string;
   total_professionals?: number;
+  logo?: string | null;
 }
 
 export default function ClinicInfoScreen() {
@@ -89,11 +94,13 @@ export default function ClinicInfoScreen() {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Minha Clínica</Text>
-        <View style={styles.backBtn} />
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Minha Clínica</Text>
+          <View style={styles.backBtn} />
+        </View>
       </View>
 
       {loading ? (
@@ -112,9 +119,14 @@ export default function ClinicInfoScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.identityCard}>
-            <View style={styles.identityIcon}>
-              <Ionicons name="business" size={26} color={colors.primary} />
-            </View>
+            {/* Logo que a clínica cadastrou em Gerenciamento; sem logo, as
+                iniciais do nome da clínica. */}
+            <Avatar
+              uri={clinic.logo}
+              name={clinic.name || "Clínica"}
+              style={styles.identityIcon}
+              textStyle={styles.identityInitials}
+            />
             <Text style={styles.clinicName}>{clinic.name || "Clínica"}</Text>
             <View style={styles.readOnlyBadge}>
               <Ionicons name="lock-closed" size={11} color="#7aab96" />
@@ -191,6 +203,11 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primary,
       paddingTop: 52,
       paddingBottom: 16,
+    },
+    headerInner: {
+      width: "100%",
+      maxWidth: MAX_WIDTH,
+      alignSelf: "center",
       paddingHorizontal: 20,
       flexDirection: "row",
       alignItems: "center",
@@ -208,7 +225,13 @@ const createStyles = (colors: ThemeColors) =>
     loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
     emptyText: { fontSize: 15, color: "#7aab96", fontWeight: "600" },
     scroll: { flex: 1 },
-    scrollContent: { padding: 20, paddingBottom: 48 },
+    scrollContent: {
+      padding: 20,
+      paddingBottom: 48,
+      width: "100%",
+      maxWidth: MAX_WIDTH,
+      alignSelf: "center",
+    },
 
     identityCard: {
       backgroundColor: colors.white,
@@ -223,13 +246,18 @@ const createStyles = (colors: ThemeColors) =>
       elevation: 3,
     },
     identityIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 18,
+      width: 72,
+      height: 72,
+      borderRadius: 22,
       backgroundColor: colors.primaryTint,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 12,
+    },
+    identityInitials: {
+      fontSize: 24,
+      fontWeight: "800",
+      color: colors.primary,
     },
     clinicName: {
       fontSize: 19,

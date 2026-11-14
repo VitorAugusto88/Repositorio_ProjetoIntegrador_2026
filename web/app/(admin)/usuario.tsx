@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import { deleteAdminUser, getAdminUsers, getMe, toggleUserStatus } from '../../services/api';
 import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
+import Avatar from '../../components/Avatar';
 
 // Cores semânticas fixas (categorias de perfil/status, não mudam com a paleta)
 const BLUE = '#2d6cdf';
@@ -46,6 +47,8 @@ interface UserRow {
   phone?: string;
   role: 'admin' | 'professional' | 'patient';
   is_active: boolean;
+  // Foto do perfil (paciente/psicólogo) ou logo da clínica (admin).
+  photo_url?: string | null;
 }
 
 // GREEN/GREEN_LIGHT (marca da clínica) entram como parâmetros porque mudam
@@ -304,9 +307,12 @@ export default function AdminUsuariosScreen() {
                   <View key={u.id} style={[styles.userCard, { flexBasis: isDesktop ? 360 : '100%' }]}>
                     <View style={styles.userTopRow}>
                       <View style={styles.userMainInfo}>
-                        <View style={[styles.avatar, { backgroundColor: roleMeta.bg }]}>
-                          <Text style={[styles.avatarText, { color: roleMeta.color }]}>{initials}</Text>
-                        </View>
+                        <Avatar
+                          uri={u.photo_url}
+                          initials={initials}
+                          style={[styles.avatar, { backgroundColor: roleMeta.bg }]}
+                          textStyle={[styles.avatarText, { color: roleMeta.color }]}
+                        />
                         <View style={styles.nameBox}>
                           <Text style={styles.userName} numberOfLines={1}>{u.full_name}</Text>
                           <Text style={styles.userMeta} numberOfLines={1}>{u.email}</Text>

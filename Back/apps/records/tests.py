@@ -100,7 +100,11 @@ class DocumentUploadValidationTests(TestCase):
     },
 )
 class SecretaryDocumentAccessTests(TestCase):
-    """Documento clinico (vinculado a paciente) e exclusivo do psicologo."""
+    """
+    Documentos clinicos (do psicologo) e administrativos (da secretaria/admin)
+    sao areas separadas: um nunca ve os documentos do outro, mesmo quando os
+    dois estao vinculados ao mesmo paciente.
+    """
 
     @classmethod
     def setUpTestData(cls):
@@ -123,30 +127,59 @@ class SecretaryDocumentAccessTests(TestCase):
             role=User.Role.PATIENT, clinic=cls.clinic,
         )
         cls.patient_user = patient_user
+        cls.other_clinic = Clinic.objects.create(name='Outra')
+        other_patient_user = User.objects.create_user(
+            email='pac2@x.com', password='Senha-forte-123', full_name='Pac2',
+            role=User.Role.PATIENT, clinic=cls.other_clinic,
+        )
         prof = ProfessionalProfile.objects.get_or_create(
             user=cls.psi, defaults={'crp': '06/12345'},
         )[0]
         profile = PatientProfile.objects.get_or_create(
             user=patient_user, defaults={'assigned_professional': prof},
         )[0]
+        cls.other_profile = PatientProfile.objects.get_or_create(
+            user=other_patient_user, defaults={'assigned_professional': prof},
+        )[0]
         cls.clinical = Document.objects.create(
             patient=profile, clinic=cls.clinic, title='Laudo',
+            area=Document.Area.CLINICAL,
             file=SimpleUploadedFile('a.pdf', PDF_BYTES),
         )
         cls.avulso = Document.objects.create(
             clinic=cls.clinic, title='Contrato',
+            area=Document.Area.ADMINISTRATIVE,
             file=SimpleUploadedFile('b.pdf', PDF_BYTES),
+        )
+        cls.admin_do_paciente = Document.objects.create(
+            patient=profile, clinic=cls.clinic, title='Comprovante',
+            area=Document.Area.ADMINISTRATIVE,
+            file=SimpleUploadedFile('c.pdf', PDF_BYTES),
         )
 
     def _ids(self, user):
         from .views import get_documents_for_user
         return set(get_documents_for_user(user).values_list('id', flat=True))
 
-    def test_admin_ve_apenas_documentos_avulsos(self):
-        self.assertEqual(self._ids(self.admin), {self.avulso.id})
+    def _client(self, user):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
 
-    def test_psicologo_ve_documento_clinico(self):
-        self.assertIn(self.clinical.id, self._ids(self.psi))
+    def test_admin_ve_apenas_documentos_administrativos(self):
+        self.assertEqual(
+            self._ids(self.admin), {self.avulso.id, self.admin_do_paciente.id}
+        )
+
+    def test_psicologo_ve_apenas_documentos_clinicos(self):
+        self.assertEqual(self._ids(self.psi), {self.clinical.id})
+
+    def test_psicologo_recebe_404_no_download_administrativo(self):
+        response = self._client(self.psi).get(
+            f'/api/records/documents/{self.admin_do_paciente.id}/download/'
+        )
+        self.assertEqual(response.status_code, 404)
 
     def test_admin_recebe_404_no_download_clinico(self):
         from rest_framework.test import APIClient
@@ -155,13 +188,41 @@ class SecretaryDocumentAccessTests(TestCase):
         response = client.get(f'/api/records/documents/{self.clinical.id}/download/')
         self.assertEqual(response.status_code, 404)
 
-    def test_admin_nao_anexa_documento_a_paciente(self):
-        from rest_framework.test import APIClient
-        client = APIClient()
-        client.force_authenticate(self.admin)
-        response = client.post('/api/records/documents/', {
-            'title': 'X', 'patient': str(self.clinical.patient_id),
-            'file': SimpleUploadedFile('c.pdf', PDF_BYTES, content_type='application/pdf'),
+    def test_admin_anexa_documento_administrativo_a_paciente(self):
+        from .models import Document
+        response = self._client(self.admin).post('/api/records/documents/', {
+            'title': 'Contrato do paciente', 'patient': str(self.clinical.patient_id),
+            'file': SimpleUploadedFile('d.pdf', PDF_BYTES, content_type='application/pdf'),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.data['area'], 'administrative')
+        self.assertEqual(response.data['patient_name'], 'Pac')
+
+        documento = Document.objects.get(pk=response.data['id'])
+        self.assertIn(documento.id, self._ids(self.admin))
+        self.assertNotIn(documento.id, self._ids(self.psi))
+
+    def test_admin_nao_escolhe_a_area_do_documento(self):
+        response = self._client(self.admin).post('/api/records/documents/', {
+            'title': 'X', 'area': 'clinical',
+            'file': SimpleUploadedFile('e.pdf', PDF_BYTES, content_type='application/pdf'),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.data['area'], 'administrative')
+
+    def test_psicologo_envia_documento_clinico(self):
+        response = self._client(self.psi).post('/api/records/documents/', {
+            'title': 'Evolucao', 'patient': str(self.clinical.patient_id),
+            'file': SimpleUploadedFile('f.pdf', PDF_BYTES, content_type='application/pdf'),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.data['area'], 'clinical')
+        self.assertNotIn(response.data['id'], {str(i) for i in self._ids(self.admin)})
+
+    def test_admin_nao_anexa_documento_a_paciente_de_outra_clinica(self):
+        response = self._client(self.admin).post('/api/records/documents/', {
+            'title': 'X', 'patient': str(self.other_profile.id),
+            'file': SimpleUploadedFile('g.pdf', PDF_BYTES, content_type='application/pdf'),
         }, format='multipart')
         self.assertEqual(response.status_code, 403, response.content)
 

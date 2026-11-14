@@ -21,6 +21,10 @@ import {
 } from "../../services/api";
 import { ThemeColors } from "../../constants/theme-palettes";
 import { useTheme } from "../../contexts/ThemeContext";
+import Avatar from "../../components/Avatar";
+
+// Largura máxima do conteúdo no web (mesmo padrão das demais telas).
+const MAX_WIDTH = 1120;
 
 const { width } = Dimensions.get("window");
 
@@ -33,6 +37,8 @@ interface NextAppointment {
   professional: string;
   specialty: string;
   avatar: string;
+  // Foto de perfil do psicólogo (null → iniciais em `avatar`).
+  photo: string | null;
 }
 
 // color/bg do item "Agendar Consulta" e "Meu Psicólogo" seguem a cor da marca
@@ -220,6 +226,7 @@ export default function HomeP() {
               professional: professionalName,
               specialty: item.specialty || "Psicologia",
               avatar: avatar || "P",
+              photo: item.professional_detail?.photo ?? null,
             };
           })
           .filter((item) => item.date && item.time)
@@ -314,35 +321,37 @@ export default function HomeP() {
       <DecorativeBackground />
 
       <View style={styles.header}>
-        <Animated.View
-          style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
-        >
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.patientName}>
-            {loadingProfile ? "Carregando..." : `${patientName} 👋`}
-          </Text>
-        </Animated.View>
+        <View style={styles.headerInner}>
+          <Animated.View
+            style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+          >
+            <Text style={styles.greeting}>{getGreeting()},</Text>
+            <Text style={styles.patientName}>
+              {loadingProfile ? "Carregando..." : `${patientName} 👋`}
+            </Text>
+          </Animated.View>
 
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.notifBtn}
-            onPress={() => router.push("/(patient)/notificacoes")}
-          >
-            <Ionicons name="notifications-outline" size={22} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.notifBtn}
-            onPress={() => router.push("/(shared)/configuracoes" as any)}
-          >
-            <Ionicons name="settings-outline" size={21} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => router.push("/(patient)/notificacoes")}
+            >
+              <Ionicons name="notifications-outline" size={22} color="#fff" />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => router.push("/(shared)/configuracoes" as any)}
+            >
+              <Ionicons name="settings-outline" size={21} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -387,11 +396,12 @@ export default function HomeP() {
                 <View style={styles.divider} />
 
                 <View style={styles.professionalRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {nextAppointment.avatar}
-                    </Text>
-                  </View>
+                  <Avatar
+                    uri={nextAppointment.photo}
+                    initials={nextAppointment.avatar}
+                    style={styles.avatar}
+                    textStyle={styles.avatarText}
+                  />
                   <View>
                     <Text style={styles.professionalName}>
                       {nextAppointment.professional}
@@ -521,6 +531,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primary,
     paddingTop: 56,
     paddingBottom: 28,
+  },
+  headerInner: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
     paddingHorizontal: 24,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -577,6 +592,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 40,
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    alignSelf: "center",
   },
 
   sectionTitle: {

@@ -10,6 +10,14 @@ class Document(models.Model):
         IMAGE = 'image', 'Imagem'
         OTHER = 'other', 'Outro'
 
+    class Area(models.TextChoices):
+        # Clinico: enviado pelo psicologo (ou pelo paciente) — so o psicologo
+        # da clinica ve. Administrativo: enviado pela secretaria/admin
+        # (contratos, comprovantes...), com ou sem paciente — so o admin ve.
+        # As duas areas nunca se misturam.
+        CLINICAL = 'clinical', 'Clínico'
+        ADMINISTRATIVE = 'administrative', 'Administrativo'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # Paciente é opcional: um documento pode ser "avulso" (sem vínculo).
     patient = models.ForeignKey(
@@ -29,6 +37,9 @@ class Document(models.Model):
     title = models.CharField(max_length=200)
     file = models.FileField(upload_to='documents/%Y/%m/')
     file_type = models.CharField(max_length=10, choices=FileType.choices, default=FileType.PDF)
+    area = models.CharField(
+        max_length=20, choices=Area.choices, default=Area.CLINICAL, db_index=True,
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -18,6 +18,7 @@ import { getMe, getPatientsByClinic } from '../../services/api';
 import type { PatientProfileApiItem } from '../../services/api';
 import { ThemeColors } from '../../constants/theme-palettes';
 import { useTheme } from '../../contexts/ThemeContext';
+import Avatar from '../../components/Avatar';
 
 // Cores semânticas fixas (categorias de status, não mudam com a paleta)
 const BLUE = '#2d6cdf';
@@ -215,9 +216,12 @@ export default function AdminPacientesScreen() {
                   <View key={p.id} style={[styles.userCard, { flexBasis: isDesktop ? 420 : '100%' }]}>
                     <View style={styles.userTopRow}>
                       <View style={styles.userMainInfo}>
-                        <View style={styles.avatar}>
-                          <Text style={styles.avatarText}>{initials}</Text>
-                        </View>
+                        <Avatar
+                          uri={p.photo ?? p.user.photo_url}
+                          initials={initials}
+                          style={styles.avatar}
+                          textStyle={styles.avatarText}
+                        />
                         <View style={styles.nameBox}>
                           <Text style={styles.userName} numberOfLines={1}>{p.user.full_name}</Text>
                           <Text style={styles.userMeta} numberOfLines={1}>{p.user.email}</Text>

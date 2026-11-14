@@ -23,6 +23,7 @@ import {
   PatientProfileApiItem,
   ProfessionalApiItem,
 } from '../../../services/api';
+import Avatar from '../../../components/Avatar';
 
 const psychologistName = (item?: ProfessionalApiItem | null) =>
   item?.user?.full_name?.trim() || item?.full_name?.trim() || item?.name?.trim() || '';
@@ -246,9 +247,12 @@ export default function PatientDetailScreen() {
         <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
           <View style={styles.profileCard}>
-            <View style={styles.avatarLarge}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            <Avatar
+              uri={patient.photo ?? patient.user.photo_url}
+              initials={initials}
+              style={styles.avatarLarge}
+              textStyle={styles.avatarText}
+            />
             <Text style={styles.profileName}>{patient.user.full_name}</Text>
             <Text style={styles.profileEmail}>{patient.user.email}</Text>
 
